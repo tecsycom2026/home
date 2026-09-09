@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Panel de Gestión — Peru Fibra</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%230D9488'/%3E%3Cg fill='none' stroke='white' stroke-width='2.1' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 17V10'/%3E%3Cpath d='M12 17V7'/%3E%3Cpath d='M18 17v-4'/%3E%3C/g%3E%3C/svg%3E">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F6F8FB;
+    --panel:#FFFFFF;
+    --panel-2:#F1F5F9;
+    --border:#E2E8F0;
+    --text:#1E293B;
+    --muted:#64748B;
+    --teal:#0D9488;
+    --teal-soft:#CCFBF1;
+    --amber:#B45309;
+    --amber-soft:#FEF3C7;
+    --red:#DC2626;
+    --red-soft:#FEE2E2;
+    --green:#15803D;
+    --green-soft:#DCFCE7;
+    --purple:#6D28D9;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Inter',system-ui,sans-serif;
+    min-height:100vh;
+    line-height:1.5;
+  }
+  .wrap{max-width:1900px;margin:0 auto;padding:28px 32px 64px;}
+
+  header{
+    display:flex;justify-content:space-between;align-items:flex-end;
+    gap:20px;flex-wrap:wrap;
+    border-bottom:1px solid var(--border);
+    padding-bottom:20px;margin-bottom:24px;
+  }
+  .brand-eyebrow{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:12px;letter-spacing:.04em;color:var(--teal);
+    display:flex;align-items:center;gap:8px;margin-bottom:6px;
+  }
+  .brand-eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--teal);}
+  h1{
+    font-family:'Space Grotesk',sans-serif;
+    font-weight:600;
+    font-size:32px;
+    margin:0;
+    letter-spacing:-0.01em;
+    color:#0F172A;
+  }
+  .subtitle{color:var(--muted);font-size:14px;margin-top:6px;max-width:520px;}
+
+  .loader{
+    display:flex;flex-direction:column;align-items:flex-end;gap:8px;
+  }
+  #dropzone{
+    border:1.5px dashed #CBD5E1;
+    background:var(--panel);
+    border-radius:10px;
+    padding:14px 18px;
+    font-size:13px;
+    color:var(--muted);
+    cursor:pointer;
+    text-align:center;
+    transition:border-color .15s ease, background .15s ease;
+    min-width:280px;
+  }
+  #dropzone:hover, #dropzone.drag{border-color:var(--teal);color:var(--text);background:var(--teal-soft);}
+  #dropzone strong{color:var(--teal);font-weight:600;}
+  #fileMeta{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--muted);}
+  input[type=file]{display:none;}
+
+  .filters{
+    display:flex;gap:12px;flex-wrap:wrap;align-items:center;
+    margin-bottom:24px;
+  }
+  .filters label{font-size:12px;color:var(--muted);margin-right:6px;}
+  select, input[type=text]{
+    background:var(--panel);
+    border:1px solid var(--border);
+    color:var(--text);
+    padding:8px 12px;
+    border-radius:8px;
+    font-size:13px;
+    font-family:'Inter',sans-serif;
+  }
+  select:focus, input:focus{outline:2px solid var(--teal);outline-offset:1px;}
+  .filter-group{display:flex;align-items:center;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:6px 6px 6px 14px;}
+  .btn{
+    background:var(--teal);color:#FFFFFF;border:none;
+    padding:9px 16px;border-radius:8px;font-weight:600;font-size:13px;
+    cursor:pointer;font-family:'Inter',sans-serif;
+  }
+  .btn:hover{filter:brightness(1.08);}
+  .btn.secondary{background:var(--panel);border:1px solid var(--border);color:var(--text);}
+  .btn:disabled{opacity:.4;cursor:not-allowed;}
+
+  .kpis{
+    display:grid;grid-template-columns:repeat(8,1fr);gap:14px;margin-bottom:28px;
+  }
+  .kpi{
+    background:var(--panel);
+    border:1px solid var(--kpi-border,var(--border));
+    border-radius:12px;
+    padding:18px 16px;
+    position:relative;
+    overflow:hidden;
+    box-shadow:0 1px 2px rgba(15,23,42,.04);
+    min-width:0;
+  }
+  .kpi .kpi-icon{
+    position:absolute;right:10px;bottom:8px;width:38px;height:38px;
+    color:var(--accent,var(--teal));opacity:.14;
+  }
+  .kpi .kpi-icon svg{width:100%;height:100%;}
+  .kpi .label{font-size:12.5px;color:var(--accent,var(--muted));font-weight:600;margin-bottom:8px;position:relative;z-index:1;line-height:1.25;}
+  .kpi .value{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:27px;font-weight:600;color:#0F172A;position:relative;z-index:1;
+  }
+  .kpi .sub{font-size:11.5px;color:var(--muted);margin-top:8px;position:relative;z-index:1;}
+  .kpi .sub-pill{
+    display:inline-block;font-size:11.5px;font-weight:600;margin-top:8px;
+    padding:2px 9px;border-radius:999px;position:relative;z-index:1;
+    background:var(--accent-soft,var(--panel-2));color:var(--accent,var(--muted));
+    white-space:nowrap;
+  }
+
+  .panels{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
+  @media(max-width:1180px){.kpis{grid-template-columns:repeat(4,1fr);}}
+  @media(max-width:1024px){.panels{grid-template-columns:1fr;}}
+  @media(max-width:640px){.kpis{grid-template-columns:1fr 1fr;}}
+  @media(max-width:640px){table{font-size:10.5px;} thead th, tbody td{padding:5px 3px;} .bar-row{grid-template-columns:74px 1fr 34px;}}
+
+  .panel{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:20px;
+    box-shadow:0 1px 2px rgba(15,23,42,.04);
+  }
+  .panel h2{
+    font-family:'Space Grotesk',sans-serif;
+    font-size:17px;font-weight:600;margin:0 0 4px;
+    color:#0F172A;
+  }
+  .panel .panel-sub{font-size:12px;color:var(--muted);margin-bottom:16px;}
+
+  /* ---- native CSS bar chart (no external chart library) ---- */
+  .barchart{margin-bottom:20px;display:flex;flex-direction:column;gap:8px;}
+  .bar-row{display:grid;grid-template-columns:112px 1fr 42px;align-items:center;gap:8px;}
+  .bar-label{font-size:11.5px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .bar-track{background:var(--panel-2);border-radius:5px;height:14px;overflow:hidden;}
+  .bar-fill{height:100%;border-radius:5px;min-width:2px;}
+  .bar-fill.ok{background:var(--green);}
+  .bar-fill.bad{background:var(--red);}
+  .bar-pct{font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--muted);text-align:right;}
+  .barchart-empty{font-size:12.5px;color:var(--muted);padding:20px 0;text-align:center;}
+
+  table{width:100%;border-collapse:collapse;font-size:11.5px;table-layout:auto;}
+  thead th{
+    text-align:left;color:var(--muted);font-weight:600;
+    padding:7px 6px;border-bottom:1px solid var(--border);
+    background:var(--panel);
+    cursor:pointer;white-space:nowrap;
+  }
+  thead th:hover{color:var(--teal);}
+  tbody td{
+    padding:7px 6px;border-bottom:1px solid var(--panel-2);
+    font-family:'IBM Plex Mono',monospace;
+    white-space:nowrap;
+    color:var(--text);
+  }
+  tbody tr:hover td{background:var(--panel-2);}
+  tbody td:first-child, thead th:first-child{font-family:'Inter',sans-serif;}
+  tbody td:first-child{max-width:150px;overflow:hidden;text-overflow:ellipsis;}
+  tbody tr.total-row td{font-weight:600;border-top:1.5px solid var(--border);border-bottom:none;color:#0F172A;background:var(--panel-2);}
+  .table-scroll{width:100%;}
+  .pill{padding:1px 7px;border-radius:999px;font-size:10.5px;font-weight:600;display:inline-block;}
+  .pill.ok{background:var(--green-soft);color:var(--green);}
+  .pill.bad{background:var(--red-soft);color:var(--red);}
+  .flag-proc{color:var(--purple);font-weight:600;}
+
+  .empty{
+    text-align:center;padding:80px 20px;color:var(--muted);
+  }
+  .empty .big{font-family:'Space Grotesk',sans-serif;font-size:20px;color:#0F172A;margin-bottom:8px;}
+  .panel-error{font-size:12.5px;color:var(--red);background:var(--red-soft);border-radius:8px;padding:12px 14px;}
+
+  footer{margin-top:30px;font-size:11.5px;color:var(--muted);border-top:1px solid var(--border);padding-top:16px;}
+  footer code{font-family:'IBM Plex Mono',monospace;background:var(--panel-2);padding:1px 5px;border-radius:4px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div>
+      <div class="brand-eyebrow"><span class="dot"></span>TECSYCOM · BASE_PERUFIBRA</div>
+      <h1>Panel de gestión operativa</h1>
+      <div class="subtitle">Efectividad, productividad, reprogramaciones y cancelaciones — agrupado por zona (distrito) y por técnico (cuadrilla).</div>
+    </div>
+    <div class="loader">
+      <div id="dropzone">Arrastra tu <strong>BASE_PERUFIBRA.xlsx</strong> aquí<br>o haz clic para elegir el archivo</div>
+      <input type="file" id="fileInput" accept=".xlsx,.xls,.csv">
+      <div id="fileMeta">Ningún archivo cargado</div>
+    </div>
+  </header>
+
+  <div class="filters" id="filtersBar" style="display:none;">
+    <div class="filter-group">
+      <label for="fNegocio">NEGOCIO</label>
+      <select id="fNegocio"><option value="">Todos</option></select>
+    </div>
+    <div class="filter-group">
+      <label for="fTramo">TRAMO</label>
+      <select id="fTramo"><option value="">Todos</option></select>
+    </div>
+    <div class="filter-group">
+      <label for="fBuscar">Buscar</label>
+      <input type="text" id="fBuscar" placeholder="zona o técnico…">
+    </div>
+    <button class="btn secondary" id="btnReset">Limpiar filtros</button>
+    <button class="btn" id="btnExport" style="margin-left:auto;">Exportar a Excel</button>
+  </div>
+
+  <div id="kpiSection"></div>
+
+  <div id="content">
+    <div class="empty">
+      <div class="big">Aún no hay datos cargados</div>
+      Carga tu archivo BASE_PERUFIBRA (mismo formato de siempre: NEGOCIO, Codigo, Cliente, dni, Direccion, Distrito, Ref-1, Ref-2, Estado, Tecnico, Cel_Tecnico, Tramo) para generar los reportes.
+    </div>
+  </div>
+
+  <footer>
+    Efectividad = Finalizado ÷ Asignados · Productividad = (Finalizado + Cancelado + Reprograma) ÷ Asignados (OT con resultado cerrado) · % Cancelación = Cancelado ÷ Asignados · % Reprogramación = Reprograma ÷ Asignados.
+    Meta de efectividad: <code>55%</code>. Todo el procesamiento ocurre en tu navegador — el archivo no se sube a ningún servidor.
+  </footer>
+
+</div>
+
+<script>
+(function(){
+  const OBJETIVO = 0.55;
+  const TECNICO_ALIAS = { "MARCO VALENCIA": "SERGIO ALVARADO" };
+
+  let rawRows = [];
+  let sortState = { zona: {key:'efectividad', dir:-1}, tecnico: {key:'efectividad', dir:-1} };
+  let layoutBuilt = false;
+
+  const dropzone = document.getElementById('dropzone');
+  const fileInput = document.getElementById('fileInput');
+  const fileMeta = document.getElementById('fileMeta');
+
+  dropzone.addEventListener('click', () => fileInput.click());
+  dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('drag'); });
+  dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag'));
+  dropzone.addEventListener('drop', e => {
+    e.preventDefault(); dropzone.classList.remove('drag');
+    if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+  });
+  fileInput.addEventListener('change', e => { if (e.target.files.length) handleFile(e.target.files[0]); });
+
+  function handleFile(file){
+    fileMeta.textContent = 'Leyendo ' + file.name + '…';
+    const reader = new FileReader();
+    reader.onload = function(e){
+      try{
+        if (typeof XLSX === 'undefined'){
+          fileMeta.textContent = 'No se pudo cargar la librería de lectura de Excel (XLSX). Revisa tu conexión, bloqueador de anuncios o firewall, y recarga la página.';
+          return;
+        }
+        const data = new Uint8Array(e.target.result);
+        const wb = XLSX.read(data, {type:'array'});
+        const sheetName = wb.SheetNames.includes('BASE_PERUFIBRA') ? 'BASE_PERUFIBRA' : wb.SheetNames[0];
+        const ws = wb.Sheets[sheetName];
+        const json = XLSX.utils.sheet_to_json(ws, {defval:''});
+        rawRows = normalizeRows(json);
+        fileMeta.textContent = file.name + ' — ' + rawRows.length + ' registros (hoja "' + sheetName + '")';
+        document.getElementById('filtersBar').style.display = 'flex';
+        populateFilters(rawRows);
+        buildLayout();
+        render();
+      }catch(err){
+        fileMeta.textContent = 'Error al leer el archivo: ' + err.message;
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  function clean(v){ return (v===undefined||v===null) ? '' : String(v).trim(); }
+
+  function normalizeRows(json){
+    return json.map(r => {
+      let tecnico = clean(r['Tecnico']);
+      const upper = tecnico.toUpperCase();
+      if (TECNICO_ALIAS[upper]) tecnico = TECNICO_ALIAS[upper];
+      return {
+        negocio: clean(r['NEGOCIO']),
+        codigo: clean(r['Codigo']),
+        distrito: clean(r['Distrito']),
+        estado: clean(r['Estado']).toUpperCase(),
+        tecnico: tecnico,
+        tramo: clean(r['Tramo'])
+      };
+    }).filter(r => r.distrito || r.tecnico);
+  }
+
+  function populateFilters(rows){
+    fillSelect('fNegocio', uniqueSorted(rows.map(r=>r.negocio)));
+    fillSelect('fTramo', uniqueSorted(rows.map(r=>r.tramo)));
+  }
+  function uniqueSorted(arr){
+    return [...new Set(arr.filter(Boolean))].sort();
+  }
+  function fillSelect(id, values){
+    const sel = document.getElementById(id);
+    const current = sel.value;
+    sel.innerHTML = '<option value="">Todos</option>' + values.map(v=>`<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('');
+    sel.value = values.includes(current) ? current : '';
+  }
+  function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+  document.getElementById('fNegocio').addEventListener('change', render);
+  document.getElementById('fTramo').addEventListener('change', render);
+  document.getElementById('fBuscar').addEventListener('input', render);
+  document.getElementById('btnReset').addEventListener('click', () => {
+    document.getElementById('fNegocio').value = '';
+    document.getElementById('fTramo').value = '';
+    document.getElementById('fBuscar').value = '';
+    render();
+  });
+  document.getElementById('btnExport').addEventListener('click', exportExcel);
+
+  function getFilteredRows(){
+    const negocio = document.getElementById('fNegocio').value;
+    const tramo = document.getElementById('fTramo').value;
+    return rawRows.filter(r =>
+      (!negocio || r.negocio === negocio) &&
+      (!tramo || r.tramo === tramo)
+    );
+  }
+
+  function aggregate(rows, keyFn){
+    const map = new Map();
+    rows.forEach(r => {
+      const key = keyFn(r);
+      if (!key) return;
+      if (!map.has(key)) map.set(key, {key, asignados:0, finalizado:0, cancelado:0, reprograma:0, enProceso:0, rescate:0, ausente:0, sinFftt:0});
+      const g = map.get(key);
+      g.asignados++;
+      if (r.estado === 'FINALIZADO') g.finalizado++;
+      else if (r.estado === 'CANCELADO') g.cancelado++;
+      else if (r.estado === 'REPROGRAMA') g.reprograma++;
+      else if (r.estado === 'EN PROCESO') g.enProceso++;
+      else if (r.estado === 'RESCATE') g.rescate++;
+      else if (r.estado === 'AUSENTE') g.ausente++;
+      else if (r.estado === 'SIN FACILIDADES TECNICAS' || r.estado === 'SIN FACILIDADES TÉCNICAS') g.sinFftt++;
+    });
+    return [...map.values()].map(g => {
+      const pendiente = g.asignados - g.finalizado - g.cancelado - g.reprograma - g.rescate - g.ausente - g.sinFftt;
+      const efectividad = g.asignados ? g.finalizado / g.asignados : 0;
+      const productividad = g.asignados ? (g.finalizado + g.cancelado + g.reprograma) / g.asignados : 0;
+      const pctCancel = g.asignados ? g.cancelado / g.asignados : 0;
+      const pctRepro = g.asignados ? g.reprograma / g.asignados : 0;
+      return {...g, pendiente, efectividad, productividad, pctCancel, pctRepro};
+    });
+  }
+
+  function totals(list){
+    const t = {asignados:0, finalizado:0, cancelado:0, reprograma:0, pendiente:0, enProceso:0, rescate:0, ausente:0, sinFftt:0};
+    list.forEach(g => { t.asignados+=g.asignados; t.finalizado+=g.finalizado; t.cancelado+=g.cancelado; t.reprograma+=g.reprograma; t.pendiente+=g.pendiente; t.enProceso+=g.enProceso; t.rescate+=(g.rescate||0); t.ausente+=(g.ausente||0); t.sinFftt+=(g.sinFftt||0); });
+    t.efectividad = t.asignados ? t.finalizado/t.asignados : 0;
+    t.productividad = t.asignados ? (t.finalizado+t.cancelado+t.reprograma)/t.asignados : 0;
+    t.pctCancel = t.asignados ? t.cancelado/t.asignados : 0;
+    t.pctRepro = t.asignados ? t.reprograma/t.asignados : 0;
+    t.pctRescate = t.asignados ? t.rescate/t.asignados : 0;
+    t.pctAusente = t.asignados ? t.ausente/t.asignados : 0;
+    t.pctSinFftt = t.asignados ? t.sinFftt/t.asignados : 0;
+    return t;
+  }
+
+  function pct(x){ return (x*100).toFixed(0) + '%'; }
+
+  // Builds the two-panel skeleton ONCE (both panels created together, atomically)
+  function buildLayout(){
+    if (layoutBuilt) return;
+    document.getElementById('content').innerHTML = `
+      <div class="panels">
+        <div class="panel" id="panel-zona"></div>
+        <div class="panel" id="panel-tecnico"></div>
+      </div>`;
+    layoutBuilt = true;
+  }
+
+  function render(){
+    if (!rawRows.length) return;
+    const search = document.getElementById('fBuscar').value.trim().toLowerCase();
+    const filtered = getFilteredRows();
+
+    let zonaList = aggregate(filtered, r => r.distrito);
+    let tecList = aggregate(filtered, r => r.tecnico);
+
+    if (search){
+      zonaList = zonaList.filter(g => g.key.toLowerCase().includes(search));
+      tecList = tecList.filter(g => g.key.toLowerCase().includes(search));
+    }
+
+    const globalTotals = totals(aggregate(filtered, r => 'ALL'));
+    renderKpis(globalTotals);
+
+    // Each panel is rendered independently and defensively: an error in one
+    // (e.g. unexpected data shape) must never prevent the other from showing.
+    try { renderPanel('zona', 'Por zona (distrito)', zonaList); }
+    catch(err){ showPanelError('zona', 'Por zona (distrito)', err); }
+
+    try { renderPanel('tecnico', 'Por técnico (cuadrilla)', tecList); }
+    catch(err){ showPanelError('tecnico', 'Por técnico (cuadrilla)', err); }
+  }
+
+  function showPanelError(id, title, err){
+    const panel = document.getElementById('panel-' + id);
+    if (!panel) return;
+    panel.innerHTML = `<h2>${title}</h2><div class="panel-error">No se pudo generar este reporte: ${escapeHtml(err.message)}</div>`;
+  }
+
+  // Small inline icon set (no external icon library — nothing that can be
+  // blocked by an ad-blocker or firewall). Minimal, lucide-style outline icons.
+  const ICONS = {
+    layers: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>',
+    check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><polyline points="8.5 12.5 11 15 16 9"></polyline></svg>',
+    clock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><polyline points="12 7 12 12 15.5 14"></polyline></svg>',
+    x: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><line x1="9" y1="9" x2="15" y2="15"></line><line x1="15" y1="9" x2="9" y2="15"></line></svg>',
+    trend: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 17 9 11 13 15 21 6"></polyline><polyline points="15 6 21 6 21 12"></polyline></svg>',
+    alert: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>',
+    userMinus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="18" y1="8" x2="23" y2="8"></line></svg>',
+    wifiOff: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="1" y1="1" x2="23" y2="23"></line><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"></path><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"></path><path d="M10.71 5.05A16 16 0 0 1 22.58 9"></path><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line></svg>'
+  };
+
+  function renderKpis(t){
+    const tecnicosActivos = new Set(getFilteredRows().map(r => r.tecnico).filter(Boolean)).size;
+    const productividadProm = tecnicosActivos > 0 ? (t.finalizado / tecnicosActivos).toFixed(1) : '0.0';
+
+    const cards = [
+      {label:'Total Asignados', value: String(t.asignados), sub: t.asignados + ' registros', icon:'layers', accent:'#334155', accentSoft:'#F1F5F9'},
+      {label:'Efectivos / Liquidados', value: String(t.finalizado), subPill: pct(t.efectividad) + ' Efectividad', icon:'check', accent:'#15803D', accentSoft:'#DCFCE7'},
+      {label:'Reprogramados', value: String(t.reprograma), subPill: pct(t.pctRepro) + ' Reprog.', icon:'clock', accent:'#B45309', accentSoft:'#FEF3C7'},
+      {label:'Cancelados', value: String(t.cancelado), subPill: pct(t.pctCancel) + ' Canc.', icon:'x', accent:'#DC2626', accentSoft:'#FEE2E2'},
+      {label:'Rescate', value: String(t.rescate), subPill: pct(t.pctRescate) + ' Rescate', icon:'alert', accent:'#6D28D9', accentSoft:'#EDE9FE'},
+      {label:'Ausentes', value: String(t.ausente), subPill: pct(t.pctAusente) + ' Ausente', icon:'userMinus', accent:'#475569', accentSoft:'#F1F5F9'},
+      {label:'Sin FFTT', value: String(t.sinFftt), subPill: pct(t.pctSinFftt) + ' Sin FFTT', icon:'wifiOff', accent:'#BE185D', accentSoft:'#FCE7F3'},
+      {label:'Productividad Promedio', value: productividadProm, sub:'Efectivos por técnico activo', icon:'trend', accent:'#2563EB', accentSoft:'#DBEAFE'}
+    ];
+
+    document.getElementById('kpiSection').innerHTML = `<div class="kpis">${
+      cards.map(c => `
+        <div class="kpi" style="--accent:${c.accent};--accent-soft:${c.accentSoft};--kpi-border:${c.accentSoft}">
+          <div class="kpi-icon">${ICONS[c.icon]}</div>
+          <div class="label">${c.label}</div>
+          <div class="value">${c.value}</div>
+          ${c.subPill ? `<div class="sub-pill">${c.subPill}</div>` : `<div class="sub">${c.sub}</div>`}
+        </div>`).join('')
+    }</div>`;
+  }
+
+  function renderPanel(id, title, list){
+    const panel = document.getElementById('panel-' + id);
+    if (!panel) return;
+
+    const state = sortState[id];
+    const sorted = [...list].sort((a,b) => (a[state.key] > b[state.key] ? 1 : -1) * state.dir);
+    const t = totals(list);
+
+    panel.innerHTML = `
+      <h2>${title}</h2>
+      <div class="panel-sub">${list.length} ${id === 'zona' ? 'distritos' : 'técnicos'} · ${t.asignados} OT en el filtro actual</div>
+      <div class="barchart" id="barchart-${id}">${barChartHtml(sorted)}</div>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th data-key="key">${id === 'zona' ? 'ZONA' : 'TÉCNICO'}</th>
+              <th data-key="asignados">ASIG.</th>
+              <th data-key="finalizado">FINAL.</th>
+              <th data-key="cancelado">CANC.</th>
+              <th data-key="reprograma">REPROG.</th>
+              <th data-key="rescate">RESC.</th>
+              <th data-key="ausente">AUS.</th>
+              <th data-key="sinFftt">SIN FFTT</th>
+              <th data-key="pendiente">PEND.</th>
+              <th data-key="efectividad">EFECT.</th>
+              <th data-key="productividad">PRODUCT.</th>
+              <th data-key="indicador">INDICADOR</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${sorted.map(g => rowHtml(g)).join('')}
+            <tr class="total-row">
+              <td>TOTAL</td>
+              <td>${t.asignados}</td>
+              <td>${t.finalizado}</td>
+              <td>${t.cancelado}</td>
+              <td>${t.reprograma}</td>
+              <td>${t.rescate}</td>
+              <td>${t.ausente}</td>
+              <td>${t.sinFftt}</td>
+              <td>${t.pendiente}</td>
+              <td>${pct(t.efectividad)}</td>
+              <td>${pct(t.productividad)}</td>
+              <td>${indicadorHtml(t.efectividad, t.asignados, t.finalizado)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    `;
+
+    panel.querySelectorAll('thead th').forEach(th => {
+      th.addEventListener('click', () => {
+        const key = th.dataset.key;
+        if (state.key === key) state.dir *= -1; else { state.key = key; state.dir = 1; }
+        try { renderPanel(id, title, list); }
+        catch(err){ showPanelError(id, title, err); }
+      });
+    });
+  }
+
+  // Native HTML/CSS horizontal bar chart — no external charting library,
+  // so it can never be blocked by an ad-blocker or firewall.
+  function barChartHtml(list){
+    if (!list.length) return '<div class="barchart-empty">Sin datos para graficar</div>';
+    const top = [...list].sort((a,b)=>b.efectividad-a.efectividad).slice(0,12);
+    return top.map(g => {
+      const widthPct = Math.max(Math.round(g.efectividad*100), g.efectividad>0?2:0);
+      const cls = g.efectividad >= OBJETIVO ? 'ok' : 'bad';
+      return `
+        <div class="bar-row">
+          <div class="bar-label" title="${escapeHtml(g.key)}">${escapeHtml(g.key)}</div>
+          <div class="bar-track"><div class="bar-fill ${cls}" style="width:${widthPct}%"></div></div>
+          <div class="bar-pct">${pct(g.efectividad)}</div>
+        </div>`;
+    }).join('');
+  }
+
+  function rowHtml(g){
+    return `<tr>
+      <td title="${escapeHtml(g.key)}">${escapeHtml(g.key)}</td>
+      <td>${g.asignados}</td>
+      <td>${g.finalizado}</td>
+      <td>${g.cancelado}</td>
+      <td>${g.reprograma}</td>
+      <td>${g.rescate}</td>
+      <td>${g.ausente}</td>
+      <td>${g.sinFftt}</td>
+      <td class="${g.enProceso ? 'flag-proc' : ''}">${g.pendiente}</td>
+      <td>${pct(g.efectividad)}</td>
+      <td>${pct(g.productividad)}</td>
+      <td>${indicadorHtml(g.efectividad, g.asignados, g.finalizado)}</td>
+    </tr>`;
+  }
+
+  function indicadorHtml(efectividad, asignados, finalizado){
+    if (efectividad >= OBJETIVO) return '<span class="pill ok">OK</span>';
+    const objetivoCant = Math.ceil(asignados * OBJETIVO);
+    const falta = objetivoCant - finalizado;
+    return `<span class="pill bad">Falta ${falta} (${pct(OBJETIVO - efectividad)})</span>`;
+  }
+
+  function exportExcel(){
+    if (!rawRows.length) return;
+    if (typeof XLSX === 'undefined'){
+      alert('No se pudo cargar la librería de Excel. Revisa tu conexión o bloqueador de anuncios y recarga la página.');
+      return;
+    }
+    const filtered = getFilteredRows();
+    const zonaList = aggregate(filtered, r => r.distrito);
+    const tecList = aggregate(filtered, r => r.tecnico);
+
+    const toSheetRows = (list) => {
+      const tz = totals(list);
+      const header = ['GRUPO','ASIGNADOS','FINALIZADO','CANCELADO','REPROGRAMA','RESCATE','AUSENTE','SIN FFTT','PENDIENTE','EFECTIVIDAD','PRODUCTIVIDAD','% CANCELACION','% REPROGRAMACION','INDICADOR'];
+      const rows = list.sort((a,b)=> a.key.localeCompare(b.key)).map(g => [
+        g.key, g.asignados, g.finalizado, g.cancelado, g.reprograma, g.rescate, g.ausente, g.sinFftt, g.pendiente,
+        +(g.efectividad*100).toFixed(1)+'%', +(g.productividad*100).toFixed(1)+'%',
+        +(g.pctCancel*100).toFixed(1)+'%', +(g.pctRepro*100).toFixed(1)+'%',
+        g.efectividad >= OBJETIVO ? 'OK' : ('Falta ' + (Math.ceil(g.asignados*OBJETIVO)-g.finalizado))
+      ]);
+      rows.push(['TOTAL', tz.asignados, tz.finalizado, tz.cancelado, tz.reprograma, tz.rescate, tz.ausente, tz.sinFftt, tz.pendiente,
+        +(tz.efectividad*100).toFixed(1)+'%', +(tz.productividad*100).toFixed(1)+'%',
+        +(tz.pctCancel*100).toFixed(1)+'%', +(tz.pctRepro*100).toFixed(1)+'%',
+        tz.efectividad >= OBJETIVO ? 'OK' : ('Falta ' + (Math.ceil(tz.asignados*OBJETIVO)-tz.finalizado))]);
+      return [header, ...rows];
+    };
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(toSheetRows(zonaList)), 'POR_ZONA');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(toSheetRows(tecList)), 'POR_TECNICO');
+    const stamp = new Date().toISOString().slice(0,10);
+    XLSX.writeFile(wb, `Reportes_Gestion_${stamp}.xlsx`);
+  }
+})();
+</script>
+</body>
+</html>

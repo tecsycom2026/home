@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Panel de Tramos — Tecsycom</title>
+<!-- Icono de la página (Favicon) -->
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📊</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  :root{
+    --bg:#f8fafc;
+    --panel:#ffffff;
+    --panel-2:#f1f5f9;
+    --border:#e2e8f0;
+    --border-hover:#cbd5e1;
+    --text:#0f172a;
+    --muted:#64748b;
+    --amber:#d97706;
+    --amber-bg:#fef3c7;
+    --teal:#0d9488;
+    --teal-bg:#ccfbf1;
+    --coral:#e11d48;
+    --coral-bg:#ffe4e6;
+    --blue:#2563eb;
+    --shadow:0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:'IBM Plex Sans',system-ui,sans-serif;
+    line-height:1.45;
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3{
+    font-family:'Space Grotesk',system-ui,sans-serif;
+    font-weight:600;
+    margin:0;
+    letter-spacing:-0.01em;
+    color:var(--text);
+  }
+  .mono{font-family:'IBM Plex Mono',monospace;}
+  .wrap{max-width:1180px;margin:0 auto;padding:28px 24px 80px;}
+
+  header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:16px;
+    flex-wrap:wrap;
+    padding-bottom:22px;
+    border-bottom:1px solid var(--border);
+    margin-bottom:28px;
+  }
+  header .title-block{display:flex;align-items:center;gap:12px;}
+  .signal-dot{
+    width:10px;height:10px;border-radius:50%;
+    background:var(--amber);
+    box-shadow:0 0 0 4px rgba(217, 119, 6, 0.2);
+    flex-shrink:0;
+  }
+  header h1{font-size:22px;}
+  header p{margin:2px 0 0;color:var(--muted);font-size:13.5px;}
+
+  .upload-btn{
+    display:inline-flex;align-items:center;gap:8px;
+    background:var(--blue);
+    color:#ffffff;
+    border:none;
+    padding:10px 18px;
+    border-radius:8px;
+    font-weight:600;
+    font-size:14px;
+    cursor:pointer;
+    box-shadow:var(--shadow);
+    transition:background-color .15s ease, transform .15s ease;
+  }
+  .upload-btn:hover{background-color:#1d4ed8;}
+  .upload-btn:active{transform:translateY(1px);}
+  #fileInput{display:none;}
+  .file-tag{
+    color:var(--muted);
+    font-size:12.5px;
+    margin-top:6px;
+    text-align:right;
+  }
+
+  .empty{
+    border:2px dashed var(--border);
+    border-radius:14px;
+    padding:70px 24px;
+    text-align:center;
+    color:var(--muted);
+    background:var(--panel);
+    box-shadow:var(--shadow);
+  }
+  .empty svg{color:var(--muted);margin-bottom:14px;}
+  .empty h2{color:var(--text);font-size:18px;margin-bottom:8px;}
+  .empty p{max-width:440px;margin:0 auto;font-size:13.5px;color:var(--muted);}
+  .empty code{
+    background:var(--panel-2);
+    padding:2px 6px;
+    border-radius:4px;
+    font-family:'IBM Plex Mono',monospace;
+    color:var(--teal);
+    font-size:12.5px;
+    border:1px solid var(--border);
+  }
+
+  .error-box{
+    border:1px solid rgba(225,29,72,0.3);
+    background:var(--coral-bg);
+    border-radius:10px;
+    padding:16px 18px;
+    color:#9f1239;
+    font-size:13.5px;
+    margin-bottom:20px;
+  }
+  .error-box strong{color:var(--coral);}
+
+  .map-panel{
+    border:1px solid var(--border);
+    background:var(--panel);
+    border-radius:12px;
+    padding:20px 22px;
+    margin-bottom:24px;
+    box-shadow:var(--shadow);
+  }
+  .map-panel h3{font-size:15px;margin-bottom:4px;}
+  .map-panel > p{color:var(--muted);font-size:13px;margin:0 0 16px;}
+  .map-row{display:grid;grid-template-columns:140px 1fr;gap:14px;align-items:center;margin-bottom:10px;}
+  .map-row label{font-size:13px;color:var(--muted);font-weight:500;}
+  select{
+    width:100%;
+    background:var(--panel-2);
+    border:1px solid var(--border);
+    color:var(--text);
+    padding:8px 10px;
+    border-radius:7px;
+    font-size:13.5px;
+    font-family:inherit;
+  }
+  .apply-btn{
+    margin-top:8px;
+    background:var(--teal);
+    color:#ffffff;
+    border:none;
+    padding:9px 16px;
+    border-radius:7px;
+    font-weight:600;
+    font-size:13.5px;
+    cursor:pointer;
+    box-shadow:var(--shadow);
+  }
+
+  .stats{
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:14px;
+    margin-bottom:28px;
+  }
+  .stat{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:12px;
+    padding:16px 18px;
+    box-shadow:var(--shadow);
+  }
+  .stat .num{font-family:'Space Grotesk',sans-serif;font-size:28px;font-weight:700;}
+  .stat .lbl{color:var(--muted);font-size:12.5px;margin-top:2px;font-weight:500;}
+  .stat.amber .num{color:var(--amber);}
+  .stat.teal .num{color:var(--teal);}
+
+  section{margin-bottom:34px;}
+  .section-head{
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    gap:12px;
+    margin-bottom:16px;
+    flex-wrap:wrap;
+  }
+  .section-head h2{font-size:17px;}
+  .section-head .sub{color:var(--muted);font-size:13px;font-weight:500;}
+
+  .chart-card{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:22px;
+    box-shadow:var(--shadow);
+  }
+  .legend-row{
+    display:flex;gap:18px;flex-wrap:wrap;
+    margin-top:14px;
+    padding-top:14px;
+    border-top:1px solid var(--border);
+  }
+  .legend-item{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--muted);font-weight:500;}
+  .legend-swatch{width:10px;height:10px;border-radius:2px;}
+
+  .search-input{
+    background:var(--panel);
+    border:1px solid var(--border);
+    color:var(--text);
+    padding:8px 12px;
+    border-radius:7px;
+    font-size:13px;
+    font-family:inherit;
+    width:220px;
+    box-shadow:var(--shadow);
+  }
+
+  .district-card{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:12px;
+    margin-bottom:10px;
+    overflow:hidden;
+    box-shadow:var(--shadow);
+    transition:border-color .15s ease;
+  }
+  .district-card:hover{border-color:var(--border-hover);}
+  .district-head{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:14px;
+    padding:14px 18px;
+    cursor:pointer;
+    user-select:none;
+    background:var(--panel);
+  }
+  .district-head:hover{background:var(--panel-2);}
+  .district-head .name{font-weight:600;font-size:14.5px;color:var(--text);}
+  .district-head .badges{display:flex;gap:8px;align-items:center;}
+  .pill{
+    font-size:11.5px;
+    font-family:'IBM Plex Mono',monospace;
+    padding:3px 9px;
+    border-radius:20px;
+    font-weight:600;
+  }
+  .pill.programado{background:var(--amber-bg);color:var(--amber);}
+  .pill.coordinado{background:var(--teal-bg);color:var(--teal);}
+  .pill.total{background:var(--panel-2);color:var(--text);border:1px solid var(--border);}
+  .chevron{color:var(--muted);transition:transform .18s ease;flex-shrink:0;}
+  .district-card.open .chevron{transform:rotate(90deg);}
+  
+  .district-body{
+    max-height:0;
+    overflow:hidden;
+    transition:max-height .22s ease;
+    border-top:1px solid transparent;
+  }
+  .district-card.open .district-body{border-top-color:var(--border);}
+
+  .summary-bar{
+    display:flex;
+    gap:16px;
+    padding:12px 18px;
+    background:var(--panel-2);
+    border-bottom:1px solid var(--border);
+    font-size:12.5px;
+    font-weight:500;
+  }
+  .summary-bar span strong{font-family:'IBM Plex Mono',monospace;margin-left:4px;}
+
+  .table-scroll{overflow-x:auto;}
+  table{width:100%;border-collapse:collapse;font-size:12.5px;}
+  thead th{
+    text-align:left;
+    color:var(--muted);
+    font-weight:600;
+    font-size:11px;
+    padding:10px 16px;
+    background:var(--panel-2);
+    white-space:nowrap;
+    border-bottom:1px solid var(--border);
+    text-transform:uppercase;
+  }
+  tbody td{
+    padding:10px 16px;
+    border-top:1px solid var(--border);
+    white-space:nowrap;
+    color:var(--text);
+  }
+  tbody td.estado-cell{font-family:'IBM Plex Mono',monospace;font-weight:600;}
+  tbody tr:hover{background:var(--panel-2);}
+
+  @media (max-width:720px){
+    .stats{grid-template-columns:repeat(2,1fr);}
+    header{align-items:flex-start;}
+    .file-tag{text-align:left;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="title-block">
+      <span class="signal-dot"></span>
+      <div>
+        <h1>Panel de Tramos — Tecsycom</h1>
+        <p><span class="mono" style="color:var(--teal); font-weight:600;">BASE_PERUFIBRA</span></p>
+      </div>
+    </div>
+    <div>
+      <label class="upload-btn" for="fileInput">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 3v12m0-12l-4 4m4-4l4 4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
+        Cargar Excel
+      </label>
+      <input type="file" id="fileInput" accept=".xlsx,.xls">
+      <div class="file-tag" id="fileTag">Ningún archivo cargado</div>
+    </div>
+  </header>
+
+  <div id="errorSlot"></div>
+  <div id="mapSlot"></div>
+
+  <div id="emptyState" class="empty">
+    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+    <h2>Sube un libro de Excel para comenzar</h2>
+    <p>Lectura de tramos desde la columna <code>DR</code> y estados (<code>PROGRAMADO</code> / <code>COORDINADO</code>) desde la columna <code>DO</code>.</p>
+  </div>
+
+  <div id="results" style="display:none;">
+    <div class="stats" id="statsRow"></div>
+
+    <section>
+      <div class="section-head">
+        <h2>Tramos por distrito</h2>
+        <span class="sub" id="chartSub"></span>
+      </div>
+      <div class="chart-card">
+        <canvas id="tramoChart" height="110"></canvas>
+        <div class="legend-row" id="legendRow"></div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <h2>Pendientes por distrito</h2>
+        <input class="search-input" id="districtSearch" placeholder="Buscar distrito…">
+      </div>
+      <div id="pendingList"></div>
+    </section>
+  </div>
+
+</div>
+
+<script>
+const TARGET_SHEET = 'BASE_PERUFIBRA';
+const PENDING_STATES = ['PROGRAMADO', 'COORDINADO'];
+const PALETTE = ['#d97706', '#0d9488', '#e11d48', '#7c3aed', '#16a34a', '#2563eb'];
+const KNOWN_TRAMO_ORDER = ['08AM-12PM', '12PM-16PM', '16PM-20PM'];
+
+const TARGET_COLUMNS = [
+  'NEGOCIO', 'Codigo', 'Cliente', 'dni', 'Direccion', 
+  'Distrito', 'Ref-1', 'Ref-2', 'Estado', 'Tecnico', 
+  'Cel_Tecnico', 'Tramo', 'Observaciones'
+];
+
+function colLetterToIndex(col) {
+  let temp = col.toUpperCase();
+  let num = 0;
+  for (let i = 0; i < temp.length; i++) {
+    num = num * 26 + (temp.charCodeAt(i) - 64);
+  }
+  return num - 1;
+}
+
+const DR_INDEX = colLetterToIndex('DR');
+const DO_INDEX = colLetterToIndex('DO');
+
+let state = { headers: [], rows: [], colMap: {} };
+let chartInstance = null;
+
+const fileInput = document.getElementById('fileInput');
+const fileTag = document.getElementById('fileTag');
+const errorSlot = document.getElementById('errorSlot');
+const mapSlot = document.getElementById('mapSlot');
+const emptyState = document.getElementById('emptyState');
+const resultsEl = document.getElementById('results');
+
+fileInput.addEventListener('change', handleFile);
+
+function clearSlots(){
+  errorSlot.innerHTML = '';
+  mapSlot.innerHTML = '';
+}
+
+function showError(html){
+  errorSlot.innerHTML = `<div class="error-box"><strong>No se pudo procesar el archivo.</strong> ${html}</div>`;
+  resultsEl.style.display = 'none';
+  emptyState.style.display = 'block';
+}
+
+function handleFile(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  clearSlots();
+  fileTag.textContent = file.name;
+
+  const reader = new FileReader();
+  reader.onload = (evt) => {
+    try{
+      const data = new Uint8Array(evt.target.result);
+      const wb = XLSX.read(data, { type: 'array' });
+      const sheetName = wb.SheetNames.find(n => n.trim().toUpperCase() === TARGET_SHEET);
+      if(!sheetName){
+        showError(`El libro no contiene una hoja llamada <span class="mono">${TARGET_SHEET}</span>.`);
+        return;
+      }
+      const ws = wb.Sheets[sheetName];
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: false });
+      processRows(rows);
+    }catch(err){
+      showError(`Error al leer el archivo: ${err.message}`);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function processRows(rows){
+  let headerIdx = rows.findIndex(r => r.some(c => /distrito/i.test(String(c))));
+  if(headerIdx === -1) headerIdx = 0;
+
+  const headers = rows[headerIdx].map(h => String(h).trim());
+  const dataRows = rows.slice(headerIdx + 1).filter(r => r.some(c => String(c).trim() !== ''));
+
+  if(dataRows.length === 0){
+    showError('La hoja BASE_PERUFIBRA no tiene filas de datos debajo del encabezado.');
+    return;
+  }
+
+  state.headers = headers;
+  state.rows = dataRows;
+
+  const idxDistrito = headers.findIndex(h => /distrito/i.test(h));
+  
+  let idxTramo = DR_INDEX < headers.length && /tramo/i.test(headers[DR_INDEX]) ? DR_INDEX : -1;
+  if(idxTramo === -1) idxTramo = headers.findIndex(h => /tramo/i.test(h));
+
+  let idxEstado = DO_INDEX < headers.length && /estado/i.test(headers[DO_INDEX]) ? DO_INDEX : -1;
+  if(idxEstado === -1) idxEstado = headers.findIndex(h => /estado/i.test(h));
+
+  if(idxDistrito === -1 || idxTramo === -1 || idxEstado === -1){
+    renderMappingPanel(headers, { idxDistrito, idxTramo, idxEstado });
+    return;
+  }
+
+  state.colMap = { distrito: idxDistrito, tramo: idxTramo, estado: idxEstado };
+  buildDashboard();
+}
+
+function renderMappingPanel(headers, guess){
+  const options = headers.map((h,i) => `<option value="${i}">${h || '(columna ' + (i+1) + ')'}</option>`).join('');
+  mapSlot.innerHTML = `
+    <div class="map-panel">
+      <h3>Selección manual de columnas</h3>
+      <p>Confirma qué columna corresponde a cada campo si no se auto-detectaron:</p>
+      <div class="map-row">
+        <label for="mapDistrito">Distrito</label>
+        <select id="mapDistrito">${options}</select>
+      </div>
+      <div class="map-row">
+        <label for="mapTramo">Tramo (DR)</label>
+        <select id="mapTramo">${options}</select>
+      </div>
+      <div class="map-row">
+        <label for="mapEstado">Estado (DO)</label>
+        <select id="mapEstado">${options}</select>
+      </div>
+      <button class="apply-btn" id="applyMap">Aplicar y generar panel</button>
+    </div>
+  `;
+  if(guess.idxDistrito >= 0) document.getElementById('mapDistrito').value = guess.idxDistrito;
+  if(guess.idxTramo >= 0) document.getElementById('mapTramo').value = guess.idxTramo;
+  if(guess.idxEstado >= 0) document.getElementById('mapEstado').value = guess.idxEstado;
+
+  document.getElementById('applyMap').addEventListener('click', () => {
+    state.colMap = {
+      distrito: parseInt(document.getElementById('mapDistrito').value, 10),
+      tramo: parseInt(document.getElementById('mapTramo').value, 10),
+      estado: parseInt(document.getElementById('mapEstado').value, 10),
+    };
+    mapSlot.innerHTML = '';
+    buildDashboard();
+  });
+}
+
+function norm(v){ return String(v ?? '').trim(); }
+function up(v){ return norm(v).toUpperCase(); }
+
+function buildDashboard(){
+  const { distrito, tramo, estado } = state.colMap;
+  const records = state.rows
+    .map(r => ({
+      distrito: norm(r[distrito]),
+      tramo: norm(r[tramo]),
+      estado: norm(r[estado]),
+      raw: r,
+    }))
+    .filter(rec => rec.distrito !== '');
+
+  if(records.length === 0){
+    showError('No se encontraron filas con distrito no vacío.');
+    return;
+  }
+
+  const seenTramos = [...new Set(records.map(r => r.tramo).filter(t => t !== ''))];
+  const tramos = [
+    ...KNOWN_TRAMO_ORDER.filter(t => seenTramos.includes(t)),
+    ...seenTramos.filter(t => !KNOWN_TRAMO_ORDER.includes(t)).sort(),
+  ];
+
+  const distritos = [...new Set(records.map(r => r.distrito))].sort((a,b) => a.localeCompare(b));
+  const counts = {};
+  distritos.forEach(d => { counts[d] = {}; tramos.forEach(t => counts[d][t] = 0); });
+  records.forEach(r => {
+    if(r.tramo !== '' && counts[r.distrito]) counts[r.distrito][r.tramo]++;
+  });
+
+  const pending = records.filter(r => PENDING_STATES.includes(up(r.estado)));
+  const pendingByDistrict = {};
+  pending.forEach(r => {
+    if(!pendingByDistrict[r.distrito]) pendingByDistrict[r.distrito] = [];
+    pendingByDistrict[r.distrito].push(r);
+  });
+
+  renderStats(records, pending, distritos);
+  renderChart(distritos, tramos, counts);
+  renderPending(pendingByDistrict);
+
+  errorSlot.innerHTML = '';
+  emptyState.style.display = 'none';
+  resultsEl.style.display = 'block';
+}
+
+function renderStats(records, pending, distritos){
+  const programado = pending.filter(r => up(r.estado) === 'PROGRAMADO').length;
+  const coordinado = pending.filter(r => up(r.estado) === 'COORDINADO').length;
+  document.getElementById('statsRow').innerHTML = `
+    <div class="stat"><div class="num">${records.length}</div><div class="lbl">Registros procesados</div></div>
+    <div class="stat"><div class="num">${distritos.length}</div><div class="lbl">Distritos</div></div>
+    <div class="stat amber"><div class="num">${programado}</div><div class="lbl">Programados (DO)</div></div>
+    <div class="stat teal"><div class="num">${coordinado}</div><div class="lbl">Coordinados (DO)</div></div>
+  `;
+}
+
+function renderChart(distritos, tramos, counts){
+  document.getElementById('chartSub').textContent = `${distritos.length} Distritos`;
+
+  const datasets = tramos.map((t, i) => ({
+    label: t,
+    data: distritos.map(d => counts[d][t]),
+    backgroundColor: PALETTE[i % PALETTE.length],
+    borderRadius: 3,
+    maxBarThickness: 26,
+  }));
+
+  const ctx = document.getElementById('tramoChart').getContext('2d');
+  if(chartInstance) chartInstance.destroy();
+
+  const heightPx = Math.max(280, distritos.length * 30);
+  document.getElementById('tramoChart').parentElement.style.height = heightPx + 'px';
+  document.getElementById('tramoChart').style.height = heightPx + 'px';
+
+  chartInstance = new Chart(ctx, {
+    type: 'bar',
+    data: { labels: distritos, datasets },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: { stacked: true, ticks: { color: '#64748b', precision: 0 }, grid: { color: '#e2e8f0' } },
+        y: { stacked: true, ticks: { color: '#0f172a', font: { size: 11.5, weight: 500 } }, grid: { display: false } },
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#ffffff',
+          titleColor: '#0f172a',
+          bodyColor: '#334155',
+          borderColor: '#e2e8f0',
+          borderWidth: 1,
+          padding: 10,
+        },
+      },
+    },
+  });
+
+  document.getElementById('legendRow').innerHTML = tramos.map((t, i) => `
+    <div class="legend-item">
+      <span class="legend-swatch" style="background:${PALETTE[i % PALETTE.length]}"></span>
+      ${t}
+    </div>
+  `).join('');
+}
+
+function mapSpecificColumns(){
+  const headers = state.headers;
+  return TARGET_COLUMNS.map(colName => {
+    let idx = -1;
+    
+    if (colName === 'Estado' && state.colMap.estado !== undefined) {
+      idx = state.colMap.estado;
+    } else if (colName === 'Tramo' && state.colMap.tramo !== undefined) {
+      idx = state.colMap.tramo;
+    } else if (colName === 'Distrito' && state.colMap.distrito !== undefined) {
+      idx = state.colMap.distrito;
+    } else {
+      idx = headers.findIndex(h => up(h) === up(colName));
+    }
+
+    return {
+      label: colName,
+      index: idx
+    };
+  });
+}
+
+function renderPending(pendingByDistrict){
+  const districts = Object.keys(pendingByDistrict).sort((a,b) =>
+    pendingByDistrict[b].length - pendingByDistrict[a].length
+  );
+  
+  const colSpecs = mapSpecificColumns();
+  const listEl = document.getElementById('pendingList');
+
+  if(districts.length === 0){
+    listEl.innerHTML = `<div class="empty" style="padding:40px 20px;"><p>No hay órdenes con estado PROGRAMADO o COORDINADO en la columna DO.</p></div>`;
+    return;
+  }
+
+  listEl.innerHTML = districts.map((d, i) => {
+    const recs = pendingByDistrict[d];
+    const progCount = recs.filter(r => up(r.estado) === 'PROGRAMADO').length;
+    const coordCount = recs.filter(r => up(r.estado) === 'COORDINADO').length;
+    const totalCount = recs.length;
+
+    const rowsHtml = recs.map(r => `
+      <tr>
+        ${colSpecs.map(spec => {
+          const isEstado = spec.label === 'Estado';
+          const val = spec.index !== -1 ? norm(r.raw[spec.index]) : '';
+          const color = isEstado ? (up(val) === 'PROGRAMADO' ? 'var(--amber)' : 'var(--teal)') : 'inherit';
+          return `<td class="${isEstado ? 'estado-cell' : ''}" style="color:${color}">${val || '—'}</td>`;
+        }).join('')}
+      </tr>
+    `).join('');
+
+    return `
+      <div class="district-card" data-idx="${i}">
+        <div class="district-head" onclick="toggleDistrict(${i})">
+          <span class="name">${d}</span>
+          <span class="badges">
+            ${progCount ? `<span class="pill programado">${progCount} programado</span>` : ''}
+            ${coordCount ? `<span class="pill coordinado">${coordCount} coordinado</span>` : ''}
+            <span class="pill total">Total: ${totalCount}</span>
+            <svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
+          </span>
+        </div>
+        <div class="district-body">
+          <div class="summary-bar">
+            <span>Resumen del distrito:</span>
+            <span style="color:var(--amber);">Programados: <strong>${progCount}</strong></span>
+            <span style="color:var(--teal);">Coordinados: <strong>${coordCount}</strong></span>
+            <span>Total Pendientes: <strong>${totalCount}</strong></span>
+          </div>
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr>${colSpecs.map(spec => `<th>${spec.label}</th>`).join('')}</tr>
+              </thead>
+              <tbody>${rowsHtml}</tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function toggleDistrict(i){
+  const card = document.querySelector(`.district-card[data-idx="${i}"]`);
+  const body = card.querySelector('.district-body');
+  const isOpen = card.classList.contains('open');
+  if(isOpen){
+    body.style.maxHeight = '0px';
+    card.classList.remove('open');
+  }else{
+    card.classList.add('open');
+    body.style.maxHeight = body.scrollHeight + 'px';
+  }
+}
+
+document.getElementById('districtSearch').addEventListener('input', (e) => {
+  const q = e.target.value.trim().toLowerCase();
+  document.querySelectorAll('.district-card').forEach(card => {
+    const name = card.querySelector('.name').textContent.toLowerCase();
+    card.style.display = name.includes(q) ? '' : 'none';
+  });
+});
+</script>
+</body>
+</html>
