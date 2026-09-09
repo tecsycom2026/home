@@ -6,6 +6,7 @@
 <title>Monitor de Alertas · Peru Fibra</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
   :root{
     --bg: #f4f6fa;
@@ -60,6 +61,8 @@
     transition:background 0.2s;
   }
   .file-btn:hover{background:#0b8462;}
+  .file-btn.excel{background:#0055aa;}
+  .file-btn.excel:hover{background:#004488;}
   .file-btn input{
     position:absolute; inset:0; opacity:0; cursor:pointer;
   }
@@ -177,6 +180,7 @@
     <label class="toggle"><input type="checkbox" id="chkNotif"> Notificación del navegador</label>
     <span class="filename" id="filename">Ningún archivo cargado</span>
     <label class="file-btn">Cargar CSV<input type="file" id="fileInput" accept=".csv"></label>
+    <label class="file-btn excel">Cargar Excel<input type="file" id="fileInputExcel" accept=".xlsx,.xls"></label>
     <span class="clock mono" id="clock"></span>
   </div>
 </header>
@@ -191,8 +195,9 @@
   </div>
 
   <div id="emptyState" class="empty">
-    <strong>Sube el CSV exportado de AppSheet</strong>
+    <strong>Sube el CSV exportado de AppSheet o el libro Excel BASE_PERUFIBRA</strong>
     Encabezados esperados: Estado, Cuadrilla, Tramo_Atencio, valida_cod_pedido, dni_cliente, H_Progra, H_Inicio, H_Proceso, H_Cierre.<br>
+    Con "Cargar Excel" se lee automáticamente la hoja <strong>BASE_PERUFIBRA</strong> del libro.<br>
     La tabla se recalcula sola cada 5 segundos.
   </div>
 
@@ -275,6 +280,69 @@ setInterval(tickClock, 1000);
 tickClock();
 
 // =====================================================
+// Normalización de encabezados y celdas (compartido CSV/Excel)
+// =====================================================
+function normalizaEncabezado(h){
+  return (h||'').toString().trim().toLowerCase().replace(/[^a-z0-9_]+/g,'_').replace(/^_+|_+$/g,'');
+}
+
+function construirIndices(headerRow){
+  const norm = headerRow.map(normalizaEncabezado);
+  const idx = {};
+  Object.keys(HEADERS_MAP).forEach(key => {
+    const aliases = HEADERS_MAP[key];
+    idx[key] = norm.findIndex(h => aliases.includes(h));
+  });
+  return idx;
+}
+
+// Convierte una celda (string de CSV o valor nativo de SheetJS) a texto.
+// Las fechas de Excel llegan como objeto Date (leído con cellDates:true):
+// - si el año es <= 1900 es un valor de solo-hora (ej. Tramo.Atencio) -> "HH:MM"
+// - si no, es fecha+hora completa -> "dd/mm/aaaa HH:MM:SS" (formato que ya entiende parseFechaPeru)
+function valorCelda(v){
+  if (v === null || v === undefined) return '';
+  if (v instanceof Date){
+    const dd = String(v.getDate()).padStart(2,'0');
+    const mm = String(v.getMonth()+1).padStart(2,'0');
+    const yyyy = v.getFullYear();
+    const hh = String(v.getHours()).padStart(2,'0');
+    const mi = String(v.getMinutes()).padStart(2,'0');
+    const ss = String(v.getSeconds()).padStart(2,'0');
+    if (yyyy <= 1900) return `${hh}:${mi}`;
+    return `${dd}/${mm}/${yyyy} ${hh}:${mi}:${ss}`;
+  }
+  // Celdas de solo-hora que Excel guarda como fracción decimal del día
+  // (ej. 0.3333 = 08:00) sin llegar como objeto Date.
+  if (typeof v === 'number' && v > 0 && v < 1){
+    const totalMin = Math.round(v * 24 * 60);
+    const hh = String(Math.floor(totalMin/60)).padStart(2,'0');
+    const mi = String(totalMin % 60).padStart(2,'0');
+    return `${hh}:${mi}`;
+  }
+  return String(v).trim();
+}
+
+// A partir de una matriz [encabezados, ...filas] arma los mismos objetos
+// que consume construirRegistros(), sin importar si vinieron de CSV o Excel.
+function filasDesdeMatriz(rows){
+  if (!rows || !rows.length) return [];
+  const headerRow = rows[0];
+  const idx = construirIndices(headerRow);
+  const out = [];
+  rows.slice(1).forEach(r => {
+    if (!r || r.length < 2) return;
+    const obj = {};
+    Object.keys(idx).forEach(key => {
+      const i = idx[key];
+      obj[key] = (i >= 0 && i < r.length) ? valorCelda(r[i]) : '';
+    });
+    out.push(obj);
+  });
+  return out;
+}
+
+// =====================================================
 // Parser CSV
 // =====================================================
 function parseCSV(text){
@@ -301,21 +369,7 @@ function parseCSV(text){
   }
   if (field.length || row.length){ row.push(field); rows.push(row); }
 
-  const headerRow = rows.shift().map(h => h.trim().toLowerCase());
-  const idx = {};
-  Object.keys(HEADERS_MAP).forEach(key => {
-    const aliases = HEADERS_MAP[key];
-    idx[key] = headerRow.findIndex(h => aliases.includes(h));
-  });
-
-  const out = [];
-  rows.forEach(r => {
-    if (r.length < 2) return;
-    const obj = {};
-    Object.keys(idx).forEach(key => { obj[key] = idx[key] >= 0 ? (r[idx[key]] || '').trim() : ''; });
-    out.push(obj);
-  });
-  return out;
+  return filasDesdeMatriz(rows);
 }
 
 // =====================================================
@@ -622,6 +676,42 @@ document.getElementById('fileInput').addEventListener('change', e => {
     document.getElementById('emptyState').style.display = 'none';
   };
   reader.readAsText(file, 'UTF-8');
+});
+
+document.getElementById('fileInputExcel').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  if (typeof XLSX === 'undefined'){
+    document.getElementById('filename').textContent = 'No se pudo cargar la librería de Excel (XLSX). Revisa tu conexión y recarga la página.';
+    return;
+  }
+
+  document.getElementById('filename').textContent = 'Leyendo ' + file.name + '…';
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try{
+      const data = new Uint8Array(ev.target.result);
+      const wb = XLSX.read(data, { type: 'array', cellDates: true });
+
+      const sheetName = wb.SheetNames.find(n => n.trim().toUpperCase() === 'BASE_PERUFIBRA') || wb.SheetNames[0];
+      const ws = wb.Sheets[sheetName];
+      const matriz = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: '' });
+
+      const filas = filasDesdeMatriz(matriz);
+      const resultado = construirRegistros(filas);
+      registros = resultado.activos;
+      programados = resultado.programados;
+      alertadosPrevios = new Set();
+      calcularAlertas();
+      render();
+      document.getElementById('emptyState').style.display = 'none';
+      document.getElementById('filename').textContent = `${file.name} (hoja "${sheetName}")`;
+    } catch(err){
+      document.getElementById('filename').textContent = 'Error al leer el Excel: ' + err.message;
+    }
+  };
+  reader.readAsArrayBuffer(file);
 });
 
 // =====================================================
