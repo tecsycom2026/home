@@ -1,0 +1,1146 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reporte de Adicionales por Hora — Peru Fibra</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Crect width=%2764%27 height=%2764%27 rx=%2714%27 fill=%27%230f9d76%27/%3E%3Cpath d=%27M12 38c11-15 29-15 40 0%27 stroke=%27white%27 stroke-width=%275%27 fill=%27none%27 stroke-linecap=%27round%27/%3E%3Cpath d=%27M20 46c7-9 17-9 24 0%27 stroke=%27white%27 stroke-width=%275%27 fill=%27none%27 stroke-linecap=%27round%27/%3E%3Ccircle cx=%2732%27 cy=%2753%27 r=%274.5%27 fill=%27white%27/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --navy:#122036;
+    --navy-2:#1A314F;
+    --ink:#1B2029;
+    --muted:#5B6472;
+    --paper:#F2F3F1;
+    --paper-2:#FFFFFF;
+    --line:#DADEE2;
+
+    --grupo1:#1A5276;
+    --grupo2:#990000;
+    --grupo3:#137444;
+    --grupo4:#000000;
+
+    --kpi-total:#2F2F2F;
+    --kpi-turno:#660099;
+    --kpi-hora:#137444;
+    --kpi-dist:#B45014;
+
+    --fila-par:#F9F9F9;
+    --fila-impar:#FFFFFF;
+
+    --zona-norte:#CCE5FF;
+    --zona-este:#CCFFE5;
+    --zona-provincia:#FFEBCC;
+    --zona-otra:#DCDCDC;
+
+    --num-cero:#C7CBD1;
+    --num-valor:#0B5FA5;
+
+    --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --font-num: 'IBM Plex Mono', 'Courier New', monospace;
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:var(--font-ui);
+    line-height:1.45;
+  }
+
+  header.app-header{
+    background:var(--navy);
+    color:#EDEFF2;
+    padding:22px clamp(16px,4vw,40px);
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    justify-content:space-between;
+    gap:16px;
+    border-bottom:3px solid var(--grupo3);
+  }
+  header.app-header .brand{
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+  }
+  header.app-header .brand .kicker{
+    font-size:12.5px;
+    letter-spacing:.02em;
+    color:#9FB2C9;
+    font-weight:500;
+  }
+  header.app-header .brand h1{
+    margin:0;
+    font-size:clamp(18px,2.4vw,23px);
+    font-weight:700;
+    letter-spacing:-0.01em;
+  }
+  .ref-badge{
+    font-family:var(--font-num);
+    font-size:13px;
+    background:rgba(255,255,255,.08);
+    border:1px solid rgba(255,255,255,.18);
+    border-radius:6px;
+    padding:8px 14px;
+    color:#D7E3EF;
+  }
+  .ref-badge b{color:#fff;}
+
+  main{
+    max-width:1440px;
+    margin:0 auto;
+    padding:clamp(16px,3vw,32px);
+  }
+
+  /* ---------- Panel de carga ---------- */
+  .upload-card{
+    background:var(--paper-2);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:clamp(20px,4vw,36px);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:14px;
+    text-align:center;
+  }
+  .upload-card.dragover{
+    border-color:var(--grupo3);
+    background:#F2FBF6;
+  }
+  .upload-icon{
+    width:46px;height:46px;
+    border-radius:50%;
+    background:var(--navy);
+    color:#fff;
+    display:flex;align-items:center;justify-content:center;
+    font-size:20px;
+  }
+  .upload-card h2{
+    margin:0;
+    font-size:18px;
+    font-weight:700;
+  }
+  .upload-card p{
+    margin:0;
+    color:var(--muted);
+    font-size:14px;
+    max-width:520px;
+  }
+  .file-input-label{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    background:var(--navy);
+    color:#fff;
+    padding:11px 20px;
+    border-radius:7px;
+    font-weight:600;
+    font-size:14px;
+    cursor:pointer;
+    border:none;
+    transition:background .15s ease;
+  }
+  .file-input-label:hover{background:var(--navy-2);}
+  .file-input-label.excel{background:var(--kpi-hora);}
+  .file-input-label.excel:hover{background:#0d5c37;}
+  .upload-buttons{display:flex; gap:10px; flex-wrap:wrap; justify-content:center;}
+  input[type=file]{display:none;}
+  .file-name{
+    font-family:var(--font-num);
+    font-size:12.5px;
+    color:var(--muted);
+  }
+  .upload-error{
+    color:#A32424;
+    background:#FBEAEA;
+    border:1px solid #EFC6C6;
+    border-radius:6px;
+    padding:10px 14px;
+    font-size:13.5px;
+    max-width:600px;
+    display:none;
+  }
+  .upload-error.show{display:block;}
+
+  /* ---------- Layout reporte ---------- */
+  .report-layout{
+    display:grid;
+    grid-template-columns:1fr 300px;
+    gap:22px;
+    align-items:start;
+    margin-top:22px;
+  }
+  @media (max-width: 980px){
+    .report-layout{grid-template-columns:1fr;}
+  }
+
+  .report-toolbar{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    margin-bottom:14px;
+  }
+  .report-toolbar .title-group h2{
+    margin:0 0 2px 0;
+    font-size:19px;
+    font-weight:700;
+  }
+  .report-toolbar .title-group span{
+    font-size:12.5px;
+    color:var(--muted);
+    font-family:var(--font-num);
+  }
+  .toolbar-actions{display:flex;gap:8px;flex-wrap:wrap;}
+  .btn{
+    font-family:var(--font-ui);
+    font-size:13px;
+    font-weight:600;
+    padding:9px 14px;
+    border-radius:7px;
+    border:1px solid var(--line);
+    background:#fff;
+    color:var(--ink);
+    cursor:pointer;
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    transition:border-color .15s ease, background .15s ease;
+  }
+  .btn:hover{border-color:var(--navy);}
+  .btn.primary{
+    background:var(--navy);
+    border-color:var(--navy);
+    color:#fff;
+  }
+  .btn.primary:hover{background:var(--navy-2);}
+  .btn.subtle{
+    background:transparent;
+    border-color:transparent;
+    color:var(--muted);
+  }
+  .btn.subtle:hover{color:var(--ink);text-decoration:underline;}
+  .btn.small{padding:6px 10px;font-size:12px;}
+
+  .table-scroll{
+    background:var(--paper-2);
+    border:1px solid var(--line);
+    border-radius:10px;
+    overflow:auto;
+    max-height:74vh;
+  }
+  table.reporte{
+    border-collapse:collapse;
+    width:100%;
+    min-width:920px;
+    font-family:var(--font-num);
+    font-size:12.6px;
+  }
+  table.reporte thead th{
+    position:sticky;
+    top:0;
+    z-index:2;
+    color:#fff;
+    font-family:var(--font-ui);
+    font-weight:700;
+    font-size:11.5px;
+    letter-spacing:.02em;
+    padding:9px 8px;
+    text-align:center;
+    white-space:nowrap;
+  }
+  table.reporte thead th.grp1{background:var(--grupo1);}
+  table.reporte thead th.grp2{background:var(--grupo2);}
+  table.reporte thead th.grp3{background:var(--grupo3);}
+  table.reporte thead th.grp4{background:var(--grupo4);}
+
+  table.reporte td{
+    padding:6px 8px;
+    text-align:center;
+    border-bottom:1px solid #ECEEF0;
+    border-right:1px solid #ECEEF0;
+    white-space:nowrap;
+  }
+  table.reporte td.txt{
+    text-align:left;
+    font-family:var(--font-ui);
+    font-weight:700;
+    font-size:12.5px;
+  }
+  table.reporte td.cero{color:var(--num-cero);}
+  table.reporte td.valor{color:var(--num-valor);font-weight:600;}
+
+  tr.fila-par td{background:var(--fila-par);}
+  tr.fila-impar td{background:var(--fila-impar);}
+
+  tr.subtotal-NORTE td{background:var(--zona-norte);font-weight:700;color:#17324D;}
+  tr.subtotal-ESTE td{background:var(--zona-este);font-weight:700;color:#134D33;}
+  tr.subtotal-PROVINCIA td{background:var(--zona-provincia);font-weight:700;color:#6B4416;}
+  tr.subtotal-OTRA td{background:var(--zona-otra);font-weight:700;color:#333;}
+
+  tr.total-general td{
+    background:var(--kpi-total);
+    color:#fff;
+    font-weight:700;
+  }
+  tr.total-general td.txt{color:#fff;}
+
+  /* ---------- Panel lateral ---------- */
+  .side-panel{
+    display:flex;
+    flex-direction:column;
+    gap:16px;
+  }
+  .panel-block{
+    background:var(--paper-2);
+    border:1px solid var(--line);
+    border-radius:10px;
+    overflow:hidden;
+  }
+  .panel-block h3{
+    margin:0;
+    padding:12px 14px;
+    font-size:13px;
+    font-weight:700;
+    background:#F7F8F8;
+    border-bottom:1px solid var(--line);
+  }
+
+  .kpi-row{
+    display:flex;
+    flex-direction:column;
+    border-bottom:1px solid #F0F1F2;
+  }
+  .kpi-row:last-child{border-bottom:none;}
+  .kpi-label{
+    padding:9px 14px 0 14px;
+    font-size:10.5px;
+    font-weight:700;
+    letter-spacing:.03em;
+    color:#fff;
+    display:inline-block;
+    margin:8px 14px 0 14px;
+    border-radius:4px;
+    padding:3px 8px;
+    width:fit-content;
+  }
+  .kpi-value{
+    padding:2px 14px 12px 14px;
+    font-family:var(--font-num);
+    font-size:14.5px;
+    font-weight:600;
+  }
+  .kpi-label.total{background:var(--kpi-total);}
+  .kpi-label.turno{background:var(--kpi-turno);}
+  .kpi-label.hora{background:var(--kpi-hora);}
+  .kpi-label.dist{background:var(--kpi-dist);}
+
+  /* ---------- Panel de zonas ---------- */
+  .zonas-body{padding:12px 14px 14px 14px;}
+  .zonas-body p.hint{
+    margin:0 0 10px 0;
+    font-size:12px;
+    color:var(--muted);
+  }
+  table.zonas-tbl{
+    width:100%;
+    border-collapse:collapse;
+    font-size:12.5px;
+    margin-bottom:10px;
+  }
+  table.zonas-tbl th{
+    text-align:left;
+    font-size:10.5px;
+    color:var(--muted);
+    font-weight:700;
+    padding:4px 4px;
+    border-bottom:1px solid var(--line);
+  }
+  table.zonas-tbl td{
+    padding:4px 4px;
+    border-bottom:1px solid #F0F1F2;
+  }
+  table.zonas-tbl input[type=text]{
+    width:100%;
+    border:1px solid var(--line);
+    border-radius:5px;
+    padding:4px 6px;
+    font-size:12px;
+    font-family:var(--font-ui);
+  }
+  table.zonas-tbl select{
+    width:100%;
+    border:1px solid var(--line);
+    border-radius:5px;
+    padding:4px 4px;
+    font-size:12px;
+    font-family:var(--font-ui);
+  }
+  .zonas-tbl .rm-btn{
+    background:none;
+    border:none;
+    color:#A32424;
+    cursor:pointer;
+    font-size:14px;
+    padding:2px 6px;
+  }
+  .zonas-actions{
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px;
+  }
+
+  .nota{
+    margin-top:16px;
+    font-size:11.5px;
+    color:var(--muted);
+    font-family:var(--font-num);
+  }
+
+  footer.app-footer{
+    text-align:center;
+    padding:26px 16px 40px 16px;
+    color:#8B93A0;
+    font-size:12px;
+  }
+
+  #detectedCols{
+    font-family:var(--font-num);
+    font-size:11.5px;
+    color:var(--muted);
+  }
+</style>
+</head>
+<body>
+
+<header class="app-header">
+  <div class="brand">
+    <span class="kicker">PERU FIBRA · OPERACIONES DE CAMPO</span>
+    <h1>Reporte de Adicionales por Hora</h1>
+  </div>
+  <div class="ref-badge" id="refBadge">Fecha de referencia: <b id="refFecha">—</b> · corte turnos: <b id="refCorte">08:59</b></div>
+</header>
+
+<main>
+
+  <div class="upload-card" id="uploadCard">
+    <div class="upload-icon">⇪</div>
+    <h2>Sube el CSV o el Excel de la vista (AppSheet_ViewData)</h2>
+    <p>Arrastra el archivo aquí o selecciónalo. Debe incluir las columnas <b>Distrito</b>, <b>Provincia</b>, <b>H_Progra</b> y <b>Tramo_Atencio</b>, igual que el export de AppSheet. Con Excel se lee automáticamente la hoja <b>BASE_PERUFIBRA</b>.</p>
+    <div class="upload-buttons">
+      <label class="file-input-label" for="csvInput">Seleccionar archivo CSV</label>
+      <label class="file-input-label excel" for="excelInput">Seleccionar archivo Excel</label>
+    </div>
+    <input type="file" id="csvInput" accept=".csv">
+    <input type="file" id="excelInput" accept=".xlsx,.xls">
+    <span class="file-name" id="fileName">Ningún archivo cargado</span>
+    <div class="upload-error" id="uploadError"></div>
+  </div>
+
+  <div class="report-layout" id="reportLayout" style="display:none;">
+
+    <section>
+      <div class="report-toolbar">
+        <div class="title-group">
+          <h2>Detalle por distrito</h2>
+          <span id="detectedCols"></span>
+        </div>
+        <div class="toolbar-actions">
+          <button class="btn" id="btnExportXlsx">⬇ Descargar Excel (.xlsx)</button>
+          <button class="btn subtle" id="btnReset">Cargar otro CSV</button>
+        </div>
+      </div>
+      <div class="table-scroll">
+        <table class="reporte" id="reportTable">
+          <thead>
+            <tr>
+              <th class="grp1">ZONA</th>
+              <th class="grp1">DISTRITO</th>
+              <th class="grp1">Turno_1</th>
+              <th class="grp1">Turno_2</th>
+              <th class="grp1">Turno_3</th>
+              <th class="grp2">TOTAL</th>
+              <th class="grp3">9AM</th>
+              <th class="grp3">10AM</th>
+              <th class="grp3">11AM</th>
+              <th class="grp3">12PM</th>
+              <th class="grp3">1PM</th>
+              <th class="grp3">2PM</th>
+              <th class="grp3">3PM</th>
+              <th class="grp3">4PM</th>
+              <th class="grp3">5PM</th>
+              <th class="grp3">6PM</th>
+              <th class="grp4">TOTAL 9AM+</th>
+            </tr>
+          </thead>
+          <tbody id="reportBody"></tbody>
+        </table>
+      </div>
+      <p class="nota" id="notaPie"></p>
+    </section>
+
+    <aside class="side-panel">
+      <div class="panel-block">
+        <h3>Indicadores</h3>
+        <div class="kpi-row">
+          <span class="kpi-label total">TOTAL GENERAL (turnos)</span>
+          <span class="kpi-value" id="kpiTotal">0</span>
+        </div>
+        <div class="kpi-row">
+          <span class="kpi-label turno">TURNO MAYOR</span>
+          <span class="kpi-value" id="kpiTurno">—</span>
+        </div>
+        <div class="kpi-row">
+          <span class="kpi-label hora">HORA PICO</span>
+          <span class="kpi-value" id="kpiHora">—</span>
+        </div>
+        <div class="kpi-row">
+          <span class="kpi-label dist">DISTRITOS</span>
+          <span class="kpi-value" id="kpiDistritos">0</span>
+        </div>
+      </div>
+
+      <div class="panel-block">
+        <h3>Configuración de zonas</h3>
+        <div class="zonas-body">
+          <p class="hint">Distritos con reglas manuales de zona (anulan la detección automática por Provincia / lista NORTE). Agrega, edita o quita filas y guarda tu configuración para reutilizarla.</p>
+          <table class="zonas-tbl">
+            <thead><tr><th>Distrito</th><th style="width:88px;">Zona</th><th></th></tr></thead>
+            <tbody id="zonasBody"></tbody>
+          </table>
+          <div class="zonas-actions">
+            <button class="btn small" id="btnAddZona">+ Agregar distrito</button>
+            <button class="btn small" id="btnSaveZonas">Guardar (.json)</button>
+            <button class="btn small" id="btnLoadZonas">Cargar .json</button>
+            <button class="btn small subtle" id="btnResetZonas">Restablecer</button>
+          </div>
+          <input type="file" id="zonasFileInput" accept=".json" style="display:none;">
+        </div>
+      </div>
+    </aside>
+
+  </div>
+
+</main>
+
+<footer class="app-footer">Reproduce la lógica de la macro GenerarReporteAdicionales v10 · todo el procesamiento ocurre en tu navegador, el CSV no se envía a ningún servidor.</footer>
+
+<script>
+(function(){
+
+  // ============================================================
+  // 0. Configuración de zonas (editable, exportable/importable)
+  // ============================================================
+  const ZONAS_DEFAULT = [
+    {distrito:"ANCON", zona:"NORTE"},
+    {distrito:"CARABAYLLO", zona:"NORTE"},
+    {distrito:"LOS OLIVOS", zona:"NORTE"},
+    {distrito:"PUENTE PIEDRA", zona:"NORTE"},
+    {distrito:"SAN MARTIN DE PORRES", zona:"NORTE"},
+    {distrito:"SAN MARTÍN DE PORRES", zona:"NORTE"},
+    {distrito:"INDEPENDENCIA", zona:"NORTE"},
+    {distrito:"COMAS", zona:"NORTE"},
+  ];
+  let zonaRules = JSON.parse(JSON.stringify(ZONAS_DEFAULT));
+
+  function renderZonasTable(){
+    const body = document.getElementById('zonasBody');
+    body.innerHTML = '';
+    zonaRules.forEach((rule, idx)=>{
+      const tr = document.createElement('tr');
+
+      const tdDist = document.createElement('td');
+      const inpDist = document.createElement('input');
+      inpDist.type = 'text';
+      inpDist.value = rule.distrito;
+      inpDist.addEventListener('change', e=>{
+        rule.distrito = e.target.value.toUpperCase().trim();
+        if(window.__lastRows) buildReport(window.__lastRows);
+      });
+      tdDist.appendChild(inpDist);
+
+      const tdZona = document.createElement('td');
+      const sel = document.createElement('select');
+      ['NORTE','ESTE','PROVINCIA'].forEach(z=>{
+        const opt = document.createElement('option');
+        opt.value = z; opt.textContent = z;
+        if(z === rule.zona) opt.selected = true;
+        sel.appendChild(opt);
+      });
+      sel.addEventListener('change', e=>{
+        rule.zona = e.target.value;
+        if(window.__lastRows) buildReport(window.__lastRows);
+      });
+      tdZona.appendChild(sel);
+
+      const tdRm = document.createElement('td');
+      const rmBtn = document.createElement('button');
+      rmBtn.className = 'rm-btn';
+      rmBtn.textContent = '✕';
+      rmBtn.title = 'Quitar regla';
+      rmBtn.addEventListener('click', ()=>{
+        zonaRules.splice(idx,1);
+        renderZonasTable();
+        if(window.__lastRows) buildReport(window.__lastRows);
+      });
+      tdRm.appendChild(rmBtn);
+
+      tr.appendChild(tdDist);
+      tr.appendChild(tdZona);
+      tr.appendChild(tdRm);
+      body.appendChild(tr);
+    });
+  }
+
+  document.getElementById('btnAddZona').addEventListener('click', ()=>{
+    zonaRules.push({distrito:'', zona:'ESTE'});
+    renderZonasTable();
+  });
+
+  document.getElementById('btnResetZonas').addEventListener('click', ()=>{
+    if(confirm('¿Restablecer la configuración de zonas a los valores originales de la macro?')){
+      zonaRules = JSON.parse(JSON.stringify(ZONAS_DEFAULT));
+      renderZonasTable();
+      if(window.__lastRows) buildReport(window.__lastRows);
+    }
+  });
+
+  document.getElementById('btnSaveZonas').addEventListener('click', ()=>{
+    const blob = new Blob([JSON.stringify(zonaRules, null, 2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'config_zonas_peru_fibra.json';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  });
+
+  document.getElementById('btnLoadZonas').addEventListener('click', ()=>{
+    document.getElementById('zonasFileInput').click();
+  });
+
+  document.getElementById('zonasFileInput').addEventListener('change', (e)=>{
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev)=>{
+      try{
+        const parsed = JSON.parse(ev.target.result);
+        if(Array.isArray(parsed)){
+          zonaRules = parsed.filter(r=> r && r.distrito && r.zona).map(r=>({
+            distrito: String(r.distrito).toUpperCase().trim(),
+            zona: String(r.zona).toUpperCase().trim()
+          }));
+          renderZonasTable();
+          if(window.__lastRows) buildReport(window.__lastRows);
+        } else {
+          alert('El archivo no tiene el formato esperado.');
+        }
+      }catch(err){
+        alert('No se pudo leer el archivo de configuración: ' + err.message);
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  });
+
+  renderZonasTable();
+
+  // ============================================================
+  // 1. Parser CSV (delimitador ; , campos entre comillas)
+  // ============================================================
+  function parseCSV(text, delimiter){
+    delimiter = delimiter || ';';
+    if(text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+    const rows = [];
+    let row = [];
+    let field = '';
+    let inQuotes = false;
+    const n = text.length;
+    let i = 0;
+    while(i < n){
+      const c = text[i];
+      if(inQuotes){
+        if(c === '"'){
+          if(text[i+1] === '"'){ field += '"'; i += 2; continue; }
+          inQuotes = false; i++; continue;
+        }
+        field += c; i++; continue;
+      } else {
+        if(c === '"'){ inQuotes = true; i++; continue; }
+        if(c === delimiter){ row.push(field); field = ''; i++; continue; }
+        if(c === '\r'){ i++; continue; }
+        if(c === '\n'){ row.push(field); rows.push(row); row = []; field = ''; i++; continue; }
+        field += c; i++; continue;
+      }
+    }
+    if(field.length > 0 || row.length > 0){ row.push(field); rows.push(row); }
+    while(rows.length && rows[rows.length-1].every(f => f === '')) rows.pop();
+    if(!rows.length) return {headers:[], data:[]};
+    const headers = rows.shift().map(h => h.trim());
+    const data = rows.map(r=>{
+      const obj = {};
+      headers.forEach((h, idx)=>{ obj[h] = (r[idx] !== undefined ? r[idx] : '').trim(); });
+      return obj;
+    });
+    return {headers, data};
+  }
+
+  // ============================================================
+  // 1b. Puente Excel -> mismo formato de filas que produce parseCSV
+  //     (lee la hoja BASE_PERUFIBRA con SheetJS)
+  // ============================================================
+  const EXCEL_HEADERS_MAP = {
+    'Distrito': ['distrito'],
+    'Provincia': ['provincia'],
+    'H_Progra': ['h_progra'],
+    'Tramo_Atencio': ['tramo_atencio']
+  };
+
+  function normalizaEncabezadoExcel(h){
+    return (h||'').toString().trim().toLowerCase().replace(/[^a-z0-9_]+/g,'_').replace(/^_+|_+$/g,'');
+  }
+
+  // Las fechas de Excel llegan como objeto Date (cellDates:true):
+  // - año <= 1900 -> valor de solo-hora (Tramo.Atencio como fecha) -> "HH:MM"
+  // - si no, fecha+hora completa -> "dd/mm/aaaa HH:MM:SS" (formato que entiende parseFechaHora)
+  // Además, Tramo.Atencio puede llegar como fracción decimal del día (0-1) sin ser Date.
+  function valorCeldaExcel(v){
+    if (v === null || v === undefined) return '';
+    if (v instanceof Date){
+      const dd = String(v.getDate()).padStart(2,'0');
+      const mm = String(v.getMonth()+1).padStart(2,'0');
+      const yyyy = v.getFullYear();
+      const hh = String(v.getHours()).padStart(2,'0');
+      const mi = String(v.getMinutes()).padStart(2,'0');
+      const ss = String(v.getSeconds()).padStart(2,'0');
+      if (yyyy <= 1900) return `${hh}:${mi}`;
+      return `${dd}/${mm}/${yyyy} ${hh}:${mi}:${ss}`;
+    }
+    if (typeof v === 'number' && v > 0 && v < 1){
+      const totalMin = Math.round(v * 24 * 60);
+      const hh = String(Math.floor(totalMin/60)).padStart(2,'0');
+      const mi = String(totalMin % 60).padStart(2,'0');
+      return `${hh}:${mi}`;
+    }
+    return String(v).trim();
+  }
+
+  function filasDesdeExcel(matriz){
+    if (!matriz || !matriz.length) return {headers:[], data:[]};
+    const headerRow = matriz[0];
+    const norm = headerRow.map(normalizaEncabezadoExcel);
+    const idx = {};
+    Object.keys(EXCEL_HEADERS_MAP).forEach(canon=>{
+      const aliases = EXCEL_HEADERS_MAP[canon];
+      idx[canon] = norm.findIndex(h => aliases.includes(h));
+    });
+    const headers = Object.keys(idx).filter(k => idx[k] >= 0);
+    const data = matriz.slice(1)
+      .filter(r => r && r.some(c => String(c).trim() !== ''))
+      .map(r=>{
+        const obj = {};
+        Object.keys(idx).forEach(canon=>{
+          const i = idx[canon];
+          obj[canon] = (i >= 0 && i < r.length) ? valorCeldaExcel(r[i]) : '';
+        });
+        return obj;
+      });
+    return {headers, data};
+  }
+
+  // ============================================================
+  // 2. Utilidades de fecha / tramo
+  // ============================================================
+  function parseFechaHora(str){
+    if(!str) return null;
+    str = str.trim();
+    const m = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/);
+    if(!m) return null;
+    const d = parseInt(m[1],10), mo = parseInt(m[2],10), y = parseInt(m[3],10);
+    const h = m[4] ? parseInt(m[4],10) : 0;
+    const mi = m[5] ? parseInt(m[5],10) : 0;
+    const s = m[6] ? parseInt(m[6],10) : 0;
+    const dt = new Date(y, mo-1, d, h, mi, s);
+    if(isNaN(dt.getTime())) return null;
+    return dt;
+  }
+
+  function mapTramo(str){
+    const t = (str || '').trim();
+    if(t === '08:00') return 'T1';
+    if(t === '12:00') return 'T2';
+    if(t === '16:00') return 'T3';
+    return null;
+  }
+
+  const HOURS = [9,10,11,12,13,14,15,16,17,18];
+  const HOUR_LABELS = ["9AM","10AM","11AM","12PM","1PM","2PM","3PM","4PM","5PM","6PM"];
+
+  // ============================================================
+  // 3. Procesamiento principal (equivalente a la macro)
+  // ============================================================
+  function procesarDatos(rows){
+    const hoy = new Date();
+    const limite08 = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate(), 8, 59, 0);
+
+    const zoneRuleMap = new Map();
+    zonaRules.forEach(r=>{
+      if(r.distrito) zoneRuleMap.set(r.distrito.toUpperCase().trim(), r.zona.toUpperCase().trim());
+    });
+
+    const distritos = new Map();
+    let leidos = 0, omitidos = 0;
+
+    rows.forEach(row=>{
+      const distrito = (row['Distrito'] || '').toUpperCase().trim();
+      const provincia = (row['Provincia'] || '').toUpperCase().trim();
+      const tramoRaw = row['Tramo_Atencio'];
+      const hProgra = parseFechaHora(row['H_Progra']);
+
+      if(!distrito || !hProgra){ omitidos++; return; }
+      leidos++;
+
+      if(!distritos.has(distrito)){
+        let zona;
+        if(zoneRuleMap.has(distrito)){
+          zona = zoneRuleMap.get(distrito);
+        } else if(provincia && provincia !== 'LIMA'){
+          zona = 'PROVINCIA';
+        } else {
+          zona = 'ESTE';
+        }
+        distritos.set(distrito, {
+          distrito, zona, t1:0, t2:0, t3:0,
+          horas: Object.fromEntries(HOURS.map(h=>[h,0]))
+        });
+      }
+
+      const rec = distritos.get(distrito);
+      if(hProgra < limite08){
+        const tk = mapTramo(tramoRaw);
+        if(tk === 'T1') rec.t1++;
+        else if(tk === 'T2') rec.t2++;
+        else if(tk === 'T3') rec.t3++;
+      } else {
+        const h = hProgra.getHours();
+        if(HOURS.includes(h)) rec.horas[h]++;
+      }
+    });
+
+    const lista = Array.from(distritos.values());
+    lista.sort((a,b)=> a.zona === b.zona ? a.distrito.localeCompare(b.distrito) : a.zona.localeCompare(b.zona));
+
+    return {lista, limite08, leidos, omitidos};
+  }
+
+  // ============================================================
+  // 4. Construcción de filas de salida (con subtotales de zona)
+  // ============================================================
+  function construirFilas(lista){
+    const filas = [];
+    let zonaActual = null;
+    let acc = null;
+
+    function nuevoAcc(){
+      return {t1:0,t2:0,t3:0, horas: Object.fromEntries(HOURS.map(h=>[h,0]))};
+    }
+    function cerrarZona(){
+      if(!zonaActual) return;
+      const totalTurno = acc.t1 + acc.t2 + acc.t3;
+      const totalHoras = HOURS.reduce((s,h)=> s + acc.horas[h], 0);
+      filas.push({
+        tipo:'subtotal', zona: zonaActual,
+        distrito: 'TOTAL ' + zonaActual,
+        t1:acc.t1, t2:acc.t2, t3:acc.t3, total: totalTurno,
+        horas: acc.horas, totalHoras
+      });
+    }
+
+    lista.forEach(d=>{
+      if(zonaActual !== null && d.zona !== zonaActual){
+        cerrarZona();
+        acc = nuevoAcc();
+      } else if(zonaActual === null){
+        acc = nuevoAcc();
+      }
+      zonaActual = d.zona;
+      acc.t1 += d.t1; acc.t2 += d.t2; acc.t3 += d.t3;
+      HOURS.forEach(h=> acc.horas[h] += d.horas[h]);
+
+      const totalTurno = d.t1 + d.t2 + d.t3;
+      const totalHoras = HOURS.reduce((s,h)=> s + d.horas[h], 0);
+      filas.push({
+        tipo:'dato', zona: d.zona, distrito: d.distrito,
+        t1:d.t1, t2:d.t2, t3:d.t3, total: totalTurno,
+        horas: d.horas, totalHoras
+      });
+    });
+    if(zonaActual !== null) cerrarZona();
+
+    // Total general (sólo sobre filas de dato)
+    const tg = {t1:0,t2:0,t3:0, horas: Object.fromEntries(HOURS.map(h=>[h,0]))};
+    filas.filter(f=>f.tipo==='dato').forEach(f=>{
+      tg.t1+=f.t1; tg.t2+=f.t2; tg.t3+=f.t3;
+      HOURS.forEach(h=> tg.horas[h]+=f.horas[h]);
+    });
+    const tgTotalTurno = tg.t1+tg.t2+tg.t3;
+    const tgTotalHoras = HOURS.reduce((s,h)=>s+tg.horas[h],0);
+    filas.push({
+      tipo:'total-general', distrito:'TOTAL GENERAL',
+      t1:tg.t1, t2:tg.t2, t3:tg.t3, total: tgTotalTurno,
+      horas: tg.horas, totalHoras: tgTotalHoras
+    });
+
+    return filas;
+  }
+
+  // ============================================================
+  // 5. KPIs (misma lógica que la macro: sólo sobre filas de dato)
+  // ============================================================
+  function calcularKPIs(lista){
+    const kpiTotal = lista.reduce((s,d)=> s + d.t1 + d.t2 + d.t3, 0);
+    const sumT1 = lista.reduce((s,d)=> s + d.t1, 0);
+    const sumT2 = lista.reduce((s,d)=> s + d.t2, 0);
+    const sumT3 = lista.reduce((s,d)=> s + d.t3, 0);
+
+    let turnoNombre, turnoVal;
+    if(sumT1 >= sumT2 && sumT1 >= sumT3){ turnoNombre='Turno_1 (08-12)'; turnoVal=sumT1; }
+    else if(sumT2 >= sumT1 && sumT2 >= sumT3){ turnoNombre='Turno_2 (12-16)'; turnoVal=sumT2; }
+    else { turnoNombre='Turno_3 (16-20)'; turnoVal=sumT3; }
+
+    let maxHora = -1, maxIdx = 0;
+    HOURS.forEach((h, idx)=>{
+      const suma = lista.reduce((s,d)=> s + d.horas[h], 0);
+      if(suma > maxHora){ maxHora = suma; maxIdx = idx; }
+    });
+
+    return {
+      kpiTotal, turnoNombre, turnoVal,
+      horaNombre: HOUR_LABELS[maxIdx], horaVal: maxHora,
+      distritos: lista.length
+    };
+  }
+
+  // ============================================================
+  // 6. Render de tabla
+  // ============================================================
+  function renderTabla(filas){
+    const body = document.getElementById('reportBody');
+    body.innerHTML = '';
+    let rn = 0;
+
+    filas.forEach(f=>{
+      const tr = document.createElement('tr');
+
+      if(f.tipo === 'dato'){
+        rn++;
+        tr.className = (rn % 2 === 0) ? 'fila-par' : 'fila-impar';
+      } else if(f.tipo === 'subtotal'){
+        tr.className = 'subtotal-' + (['NORTE','ESTE','PROVINCIA'].includes(f.zona) ? f.zona : 'OTRA');
+      } else if(f.tipo === 'total-general'){
+        tr.className = 'total-general';
+      }
+
+      const zonaCell = document.createElement('td');
+      zonaCell.className = 'txt';
+      zonaCell.textContent = f.tipo === 'dato' ? f.zona : '';
+      tr.appendChild(zonaCell);
+
+      const distCell = document.createElement('td');
+      distCell.className = 'txt';
+      distCell.textContent = f.distrito;
+      tr.appendChild(distCell);
+
+      function numCell(val){
+        const td = document.createElement('td');
+        td.textContent = val;
+        if(f.tipo === 'dato') td.className = (val === 0) ? 'cero' : 'valor';
+        return td;
+      }
+
+      tr.appendChild(numCell(f.t1));
+      tr.appendChild(numCell(f.t2));
+      tr.appendChild(numCell(f.t3));
+      tr.appendChild(numCell(f.total));
+      HOURS.forEach(h=> tr.appendChild(numCell(f.horas[h])));
+      tr.appendChild(numCell(f.totalHoras));
+
+      body.appendChild(tr);
+    });
+  }
+
+  function renderKPIs(k){
+    document.getElementById('kpiTotal').textContent = k.kpiTotal.toLocaleString('es-PE');
+    document.getElementById('kpiTurno').textContent = k.turnoNombre + ' (' + k.turnoVal + ' reg.)';
+    document.getElementById('kpiHora').textContent = k.horaNombre + ' (' + k.horaVal + ' reg.)';
+    document.getElementById('kpiDistritos').textContent = k.distritos;
+  }
+
+  // ============================================================
+  // 7. Flujo principal
+  // ============================================================
+  window.__lastRows = null;
+  window.__lastFilas = null;
+
+  function buildReport(rows){
+    window.__lastRows = rows;
+    const {lista, limite08, leidos, omitidos} = procesarDatos(rows);
+    const filas = construirFilas(lista);
+    window.__lastFilas = filas;
+    const kpis = calcularKPIs(lista);
+
+    renderTabla(filas);
+    renderKPIs(kpis);
+
+    const hoy = new Date();
+    const fmt = (d)=> String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear();
+    document.getElementById('refFecha').textContent = fmt(hoy);
+    document.getElementById('refCorte').textContent = '08:59 am';
+
+    document.getElementById('notaPie').textContent =
+      'Reporte generado: ' + hoy.toLocaleString('es-PE') +
+      ' · Registros leídos: ' + leidos + ' · Omitidos (sin distrito o fecha inválida): ' + omitidos;
+
+    document.getElementById('reportLayout').style.display = 'grid';
+  }
+
+  document.getElementById('btnExportXlsx').addEventListener('click', ()=>{
+    if(!window.__lastFilas) return;
+    const headers = ["ZONA","DISTRITO","Turno_1","Turno_2","Turno_3","TOTAL",
+      "9AM","10AM","11AM","12PM","1PM","2PM","3PM","4PM","5PM","6PM","TOTAL 9AM+"];
+    const aoa = [headers];
+    window.__lastFilas.forEach(f=>{
+      aoa.push([
+        f.tipo === 'dato' ? f.zona : '',
+        f.distrito, f.t1, f.t2, f.t3, f.total,
+        ...HOURS.map(h=>f.horas[h]), f.totalHoras
+      ]);
+    });
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'ADICIONALES');
+    const hoy = new Date();
+    const fname = 'ADICIONALES_' + hoy.toISOString().slice(0,10) + '.xlsx';
+    XLSX.writeFile(wb, fname);
+  });
+
+  document.getElementById('btnReset').addEventListener('click', ()=>{
+    document.getElementById('reportLayout').style.display = 'none';
+    document.getElementById('csvInput').value = '';
+    document.getElementById('fileName').textContent = 'Ningún archivo cargado';
+    hideError();
+  });
+
+  function showError(msg){
+    const el = document.getElementById('uploadError');
+    el.textContent = msg;
+    el.classList.add('show');
+  }
+  function hideError(){
+    document.getElementById('uploadError').classList.remove('show');
+  }
+
+  const REQUIRED_COLS = ['Distrito','Provincia','H_Progra','Tramo_Atencio'];
+
+  function handleFile(file){
+    hideError();
+    document.getElementById('fileName').textContent = file.name;
+    const reader = new FileReader();
+    reader.onload = (e)=>{
+      try{
+        const {headers, data} = parseCSV(e.target.result, ';');
+        const faltantes = REQUIRED_COLS.filter(c => !headers.includes(c));
+        if(faltantes.length){
+          showError('El CSV no tiene las columnas requeridas: ' + faltantes.join(', ') + '. Verifica que sea el export de la vista AppSheet.');
+          return;
+        }
+        document.getElementById('detectedCols').textContent =
+          data.length + ' filas leídas del CSV · columnas detectadas correctamente';
+        buildReport(data);
+      }catch(err){
+        showError('No se pudo procesar el archivo: ' + err.message);
+      }
+    };
+    reader.onerror = ()=> showError('No se pudo leer el archivo.');
+    reader.readAsText(file, 'UTF-8');
+  }
+
+  document.getElementById('csvInput').addEventListener('change', (e)=>{
+    const file = e.target.files[0];
+    if(file) handleFile(file);
+  });
+
+  function handleExcelFile(file){
+    hideError();
+    if (typeof XLSX === 'undefined'){
+      showError('No se pudo cargar la librería de Excel (XLSX). Revisa tu conexión y recarga la página.');
+      return;
+    }
+    document.getElementById('fileName').textContent = 'Leyendo ' + file.name + '…';
+    const reader = new FileReader();
+    reader.onload = (e)=>{
+      try{
+        const data = new Uint8Array(e.target.result);
+        const wb = XLSX.read(data, {type:'array', cellDates:true});
+        const sheetName = wb.SheetNames.find(n => n.trim().toUpperCase() === 'BASE_PERUFIBRA') || wb.SheetNames[0];
+        const ws = wb.Sheets[sheetName];
+        const matriz = XLSX.utils.sheet_to_json(ws, {header:1, raw:true, defval:''});
+        const {headers, data: filas} = filasDesdeExcel(matriz);
+        const faltantes = REQUIRED_COLS.filter(c => !headers.includes(c));
+        if(faltantes.length){
+          showError('El Excel no tiene las columnas requeridas: ' + faltantes.join(', ') + '. Verifica que la hoja BASE_PERUFIBRA tenga esas columnas.');
+          return;
+        }
+        document.getElementById('fileName').textContent = `${file.name} (hoja "${sheetName}")`;
+        document.getElementById('detectedCols').textContent =
+          filas.length + ' filas leídas del Excel · columnas detectadas correctamente';
+        buildReport(filas);
+      }catch(err){
+        showError('No se pudo procesar el archivo: ' + err.message);
+      }
+    };
+    reader.onerror = ()=> showError('No se pudo leer el archivo.');
+    reader.readAsArrayBuffer(file);
+  }
+
+  document.getElementById('excelInput').addEventListener('change', (e)=>{
+    const file = e.target.files[0];
+    if(file) handleExcelFile(file);
+  });
+
+  const uploadCard = document.getElementById('uploadCard');
+  ['dragenter','dragover'].forEach(evt=>{
+    uploadCard.addEventListener(evt, (e)=>{
+      e.preventDefault(); e.stopPropagation();
+      uploadCard.classList.add('dragover');
+    });
+  });
+  ['dragleave','drop'].forEach(evt=>{
+    uploadCard.addEventListener(evt, (e)=>{
+      e.preventDefault(); e.stopPropagation();
+      uploadCard.classList.remove('dragover');
+    });
+  });
+  uploadCard.addEventListener('drop', (e)=>{
+    const file = e.dataTransfer.files[0];
+    if(!file) return;
+    if(/\.(xlsx|xls)$/i.test(file.name)) handleExcelFile(file);
+    else handleFile(file);
+  });
+
+})();
+</script>
+
+</body>
+</html>
