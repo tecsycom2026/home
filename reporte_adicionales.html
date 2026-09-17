@@ -92,6 +92,22 @@
 
   main{max-width:1440px;margin:0 auto;padding:clamp(16px,3vw,32px);}
 
+  .filtros-bar{
+    display:flex;flex-wrap:wrap;align-items:center;gap:12px;
+    background:var(--paper-2);border:1px solid var(--line);border-radius:10px;
+    padding:12px 16px;margin-bottom:16px;
+  }
+  .filtro-item{display:flex;align-items:center;gap:8px;}
+  .filtro-item label{
+    font-size:11.5px;font-weight:700;color:var(--muted);letter-spacing:.03em;
+  }
+  .filtro-item select{
+    background:#fff;border:1px solid var(--line);border-radius:6px;
+    padding:7px 10px;font-size:13px;font-family:var(--font-ui);
+    color:var(--ink);min-width:200px;cursor:pointer;
+  }
+  .filtro-item select:focus{outline:2px solid var(--grupo3);outline-offset:1px;}
+
   .upload-card{
     background:var(--paper-2);border:1px solid var(--line);border-radius:10px;
     padding:clamp(20px,4vw,36px);display:flex;flex-direction:column;align-items:center;
@@ -361,6 +377,16 @@
 
 <main>
 
+  <div class="filtros-bar" id="filtrosBar" style="display:none;">
+    <div class="filtro-item">
+      <label for="filtroNegocio">NEGOCIO</label>
+      <select id="filtroNegocio">
+        <option value="">Todos</option>
+      </select>
+    </div>
+    <button class="btn small subtle" id="btnLimpiarFiltro">Limpiar filtro</button>
+  </div>
+
   <div class="upload-card" id="uploadCard">
     <div class="upload-icon">⇪</div>
     <h2>Sube el CSV o el Excel de la vista (AppSheet_ViewData)</h2>
@@ -534,7 +560,7 @@
       inpDist.value = rule.distrito;
       inpDist.addEventListener('change', e=>{
         rule.distrito = e.target.value.toUpperCase().trim();
-        if(window.__lastRows) buildReport(window.__lastRows);
+        if(window.__lastRowsAll) buildReport(window.__lastRowsAll);
       });
       tdDist.appendChild(inpDist);
 
@@ -548,7 +574,7 @@
       });
       sel.addEventListener('change', e=>{
         rule.zona = e.target.value;
-        if(window.__lastRows) buildReport(window.__lastRows);
+        if(window.__lastRowsAll) buildReport(window.__lastRowsAll);
       });
       tdZona.appendChild(sel);
 
@@ -560,7 +586,7 @@
       rmBtn.addEventListener('click', ()=>{
         zonaRules.splice(idx,1);
         renderZonasTable();
-        if(window.__lastRows) buildReport(window.__lastRows);
+        if(window.__lastRowsAll) buildReport(window.__lastRowsAll);
       });
       tdRm.appendChild(rmBtn);
 
@@ -580,7 +606,7 @@
     if(confirm('¿Restablecer la configuración de zonas a los valores originales de la macro?')){
       zonaRules = JSON.parse(JSON.stringify(ZONAS_DEFAULT));
       renderZonasTable();
-      if(window.__lastRows) buildReport(window.__lastRows);
+      if(window.__lastRowsAll) buildReport(window.__lastRowsAll);
     }
   });
 
@@ -613,7 +639,7 @@
             zona: String(r.zona).toUpperCase().trim()
           }));
           renderZonasTable();
-          if(window.__lastRows) buildReport(window.__lastRows);
+          if(window.__lastRowsAll) buildReport(window.__lastRowsAll);
         } else {
           alert('El archivo no tiene el formato esperado.');
         }
@@ -683,6 +709,7 @@
     'Provincia': ['provincia'],
     'H_Progra': ['h_progra'],
     'Tramo_Atencio': ['tramo_atencio'],
+    'Negocio': ['negocio','tipo_negocio','tipo_de_negocio'],
     'Estado': ['estado','estado_orden','estadoorden','status','situacion','estado_actual','estado_servicio','estado_trabajo'],
     'Tecnico': ['tecnico','técnico','tecnico_asignado','nombre_tecnico','tecnico_responsable',
                 'responsable','empleado','operario','instalador','cuadrilla','nombre_del_tecnico',
@@ -695,17 +722,20 @@
       .replace(/[^a-z0-9_]+/g,'_').replace(/^_+|_+$/g,'');
   }
 
+  // Convierte la celda a string en formato compatible con el parser.
+  // Si es Date, produce "dd/mm/yyyy HH:MM" (24h) — idéntico al CSV.
+  // Si es solo-hora, produce "HH:MM".
   function valorCeldaExcel(v){
     if (v === null || v === undefined) return '';
     if (v instanceof Date){
-      const dd = String(v.getDate()).padStart(2,'0');
-      const mm = String(v.getMonth()+1).padStart(2,'0');
+      if (isNaN(v.getTime())) return '';
+      const dd   = String(v.getDate()).padStart(2,'0');
+      const mm   = String(v.getMonth()+1).padStart(2,'0');
       const yyyy = v.getFullYear();
-      const hh = String(v.getHours()).padStart(2,'0');
-      const mi = String(v.getMinutes()).padStart(2,'0');
-      const ss = String(v.getSeconds()).padStart(2,'0');
+      const hh   = String(v.getHours()).padStart(2,'0');
+      const mi   = String(v.getMinutes()).padStart(2,'0');
       if (yyyy <= 1900) return `${hh}:${mi}`;
-      return `${dd}/${mm}/${yyyy} ${hh}:${mi}:${ss}`;
+      return `${dd}/${mm}/${yyyy} ${hh}:${mi}`;
     }
     if (typeof v === 'number' && v > 0 && v < 1){
       const totalMin = Math.round(v * 24 * 60);
@@ -742,18 +772,69 @@
   // ============================================================
   // 2. Fechas y tramos
   // ============================================================
+  // Parser unificado que acepta:
+  //   - Objeto Date (Excel con cellDates:true)
+  //   - "dd/mm/yyyy [HH:MM[:SS]] [AM|PM|a. m.|p. m.]"
+  //   - "yyyy-mm-dd [T ]HH:MM[:SS] [AM|PM]"
+  //   - "HH:MM[:SS] [AM|PM]" (solo hora -> hoy)
   function parseFechaHora(str){
-    if(!str) return null;
-    str = str.trim();
-    const m = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/);
-    if(!m) return null;
-    const d = parseInt(m[1],10), mo = parseInt(m[2],10), y = parseInt(m[3],10);
-    const h = m[4] ? parseInt(m[4],10) : 0;
-    const mi = m[5] ? parseInt(m[5],10) : 0;
-    const s = m[6] ? parseInt(m[6],10) : 0;
-    const dt = new Date(y, mo-1, d, h, mi, s);
-    if(isNaN(dt.getTime())) return null;
-    return dt;
+    if(str === null || str === undefined) return null;
+
+    // 1) Si viene como Date (Excel con cellDates:true), usar directo
+    if(str instanceof Date){
+      return isNaN(str.getTime()) ? null : str;
+    }
+
+    const s = String(str).trim();
+    if(!s) return null;
+
+    // Caso A: "dd/mm/yyyy [HH:MM[:SS]] [a.m./p.m./AM/PM]"
+    let m = s.match(
+      /^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:[\s,]+(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\s*([ap])\.?\s*m\.?)?)?$/i
+    );
+    if(m){
+      const d = parseInt(m[1],10), mo = parseInt(m[2],10), y = parseInt(m[3],10);
+      let h = m[4] ? parseInt(m[4],10) : 0;
+      const mi = m[5] ? parseInt(m[5],10) : 0;
+      const sec = m[6] ? parseInt(m[6],10) : 0;
+      const ap = m[7] ? m[7].toLowerCase() : null;
+      if(ap === 'p' && h < 12) h += 12;
+      if(ap === 'a' && h === 12) h = 0;
+      const dt = new Date(y, mo-1, d, h, mi, sec);
+      if(!isNaN(dt.getTime())) return dt;
+    }
+
+    // Caso B: "yyyy-mm-dd [T ]HH:MM[:SS] [AM/PM]"
+    m = s.match(
+      /^(\d{4})-(\d{1,2})-(\d{1,2})(?:[\s,T]+(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\s*([ap])\.?\s*m\.?)?)?$/i
+    );
+    if(m){
+      const y = parseInt(m[1],10), mo = parseInt(m[2],10), d = parseInt(m[3],10);
+      let h = m[4] ? parseInt(m[4],10) : 0;
+      const mi = m[5] ? parseInt(m[5],10) : 0;
+      const sec = m[6] ? parseInt(m[6],10) : 0;
+      const ap = m[7] ? m[7].toLowerCase() : null;
+      if(ap === 'p' && h < 12) h += 12;
+      if(ap === 'a' && h === 12) h = 0;
+      const dt = new Date(y, mo-1, d, h, mi, sec);
+      if(!isNaN(dt.getTime())) return dt;
+    }
+
+    // Caso C: "HH:MM[:SS] [AM/PM]" (solo hora -> hoy)
+    m = s.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\s*([ap])\.?\s*m\.?)?$/i);
+    if(m){
+      let h = parseInt(m[1],10);
+      const mi = parseInt(m[2],10);
+      const sec = m[3] ? parseInt(m[3],10) : 0;
+      const ap = m[4] ? m[4].toLowerCase() : null;
+      if(ap === 'p' && h < 12) h += 12;
+      if(ap === 'a' && h === 12) h = 0;
+      const hoy = new Date();
+      const dt = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate(), h, mi, sec);
+      if(!isNaN(dt.getTime())) return dt;
+    }
+
+    return null;
   }
 
   function mapTramo(str){
@@ -808,7 +889,14 @@
     return null;
   }
 
-  // PROGRAMADO / PENDIENTE / COORDINADO / vacío -> "PENDIENTE"
+  function encontrarColumnaNegocioCSV(headers){
+    for(const h of headers){
+      const n = normalizaTexto(h);
+      if(n === 'negocio' || n === 'tipo_negocio' || n === 'tipo_de_negocio') return h;
+    }
+    return null;
+  }
+
   function normalizarEstado(v){
     let t = (v||'').toString().trim().toUpperCase()
       .normalize('NFD').replace(/[\u0300-\u036f]/g,'');
@@ -1015,13 +1103,6 @@
 
   // ============================================================
   // 6b. ESTADO POR TÉCNICO
-  //     · T1/T2/T3 solo cuentan órdenes en estado PENDIENTE
-  //       (PROGRAMADO / COORDINADO / PENDIENTE / vacío).
-  //     · PEND. = total de órdenes en estado PROGRAMADO/COORDINADO.
-  //     · CANC. + REPROG. + AUS. + OTROS se agrupan en OTROS.
-  //     · PEND. se muestra en negrita solo cuando es > 0.
-  //     · Solo EN CAMINO y EN PROCESO llevan fondo de color en las
-  //       filas por técnico (la fila TOTAL no lleva fondo).
   // ============================================================
   const OBJETIVO_EFECTIVIDAD = 0.55;
 
@@ -1074,8 +1155,6 @@
       const rec = porTecnico[tecnico];
       rec.total++;
 
-      // T1/T2/T3 SOLO cuentan si el estado es PENDIENTE
-      // (es decir, PROGRAMADO / COORDINADO / PENDIENTE / vacío).
       if(estado === 'PENDIENTE'){
         if(turnoKey === 'T1') rec.t1++;
         else if(turnoKey === 'T2') rec.t2++;
@@ -1086,7 +1165,7 @@
       else if(estado === 'FINALIZADO') rec.finalizado++;
       else if(estado === 'EN CAMINO')  rec.enCamino++;
       else if(estado === 'EN PROCESO') rec.enProceso++;
-      else                             rec.otros++;   // AUSENTE / REPROGRAMA / CANCELADO / OTROS
+      else                             rec.otros++;
     });
 
     Object.values(porTecnico).forEach(g => {
@@ -1312,23 +1391,48 @@
   // ============================================================
   // 7. Flujo principal
   // ============================================================
+  window.__lastRowsAll = null;
   window.__lastRows = null;
   window.__lastFilas = null;
   window.__estadoDisponible = false;
   window.__lastPorTecnico = null;
   window.__lastEstadosTotales = null;
 
+  function poblarFiltroNegocio(rows){
+    const sel = document.getElementById('filtroNegocio');
+    const valores = [...new Set(
+      rows.map(r => (r['Negocio'] || '').toString().trim()).filter(Boolean)
+    )].sort((a,b)=> a.localeCompare(b));
+
+    const actual = sel.value;
+    sel.innerHTML = '<option value="">Todos</option>' +
+      valores.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('');
+    sel.value = valores.includes(actual) ? actual : '';
+
+    document.getElementById('filtrosBar').style.display = valores.length ? 'flex' : 'none';
+  }
+
   function buildReport(rows, estadoDisponible){
-    window.__lastRows = rows;
+    window.__lastRowsAll = rows;
     if(typeof estadoDisponible === 'boolean') window.__estadoDisponible = estadoDisponible;
-    const {lista, limite08, leidos, omitidos} = procesarDatos(rows);
+
+    poblarFiltroNegocio(rows);
+
+    const negocioSel = document.getElementById('filtroNegocio').value;
+    const rowsFiltradas = negocioSel
+      ? rows.filter(r => (r['Negocio'] || '').toString().trim() === negocioSel)
+      : rows;
+
+    window.__lastRows = rowsFiltradas;
+
+    const {lista, limite08, leidos, omitidos} = procesarDatos(rowsFiltradas);
     const filas = construirFilas(lista);
     window.__lastFilas = filas;
     const kpis = calcularKPIs(lista);
 
     renderTabla(filas);
     renderKPIs(kpis);
-    renderEstados(rows, limite08);
+    renderEstados(rowsFiltradas, limite08);
 
     const hoy = new Date();
     const fmt = (d)=> String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear();
@@ -1337,7 +1441,8 @@
 
     document.getElementById('notaPie').textContent =
       'Reporte generado: ' + hoy.toLocaleString('es-PE') +
-      ' · Registros leídos: ' + leidos + ' · Omitidos (sin distrito o fecha inválida): ' + omitidos;
+      ' · Registros leídos: ' + leidos + ' · Omitidos (sin distrito o fecha inválida): ' + omitidos +
+      (negocioSel ? ' · Filtro Negocio: "' + negocioSel + '"' : '');
 
     document.getElementById('pageLayout').style.display = 'flex';
   }
@@ -1383,13 +1488,25 @@
   document.getElementById('btnReset').addEventListener('click', ()=>{
     document.getElementById('pageLayout').style.display = 'none';
     document.getElementById('estadoLayout').style.display = 'none';
+    document.getElementById('filtrosBar').style.display = 'none';
+    document.getElementById('filtroNegocio').value = '';
     window.__estadoDisponible = false;
+    window.__lastRowsAll = null;
+    window.__lastRows = null;
     window.__lastPorTecnico = null;
     window.__lastEstadosTotales = null;
     document.getElementById('csvInput').value = '';
     document.getElementById('excelInput').value = '';
     document.getElementById('fileName').textContent = 'Ningún archivo cargado';
     hideError();
+  });
+
+  document.getElementById('filtroNegocio').addEventListener('change', ()=>{
+    if(window.__lastRowsAll) buildReport(window.__lastRowsAll);
+  });
+  document.getElementById('btnLimpiarFiltro').addEventListener('click', ()=>{
+    document.getElementById('filtroNegocio').value = '';
+    if(window.__lastRowsAll) buildReport(window.__lastRowsAll);
   });
 
   function showError(msg){
@@ -1424,11 +1541,16 @@
         if(tecnicoCol){
           data.forEach(r=>{ r['Tecnico'] = r[tecnicoCol]; });
         }
+        const negocioCol = encontrarColumnaNegocioCSV(headers);
+        if(negocioCol){
+          data.forEach(r=>{ r['Negocio'] = r[negocioCol]; });
+        }
 
         document.getElementById('detectedCols').textContent =
           data.length + ' filas leídas del CSV · columnas detectadas correctamente' +
           (estadoDisponible ? ' · columna de Estado: "' + estadoCol + '"' : '') +
-          (tecnicoCol ? ' · columna de Técnico: "' + tecnicoCol + '"' : '');
+          (tecnicoCol ? ' · columna de Técnico: "' + tecnicoCol + '"' : '') +
+          (negocioCol ? ' · columna de Negocio: "' + negocioCol + '"' : '');
 
         buildReport(data, estadoDisponible);
       }catch(err){
@@ -1467,11 +1589,13 @@
         }
         const estadoDisponible = headers.includes('Estado');
         const tecnicoDisponible = headers.includes('Tecnico');
+        const negocioDisponible = headers.includes('Negocio');
         document.getElementById('fileName').textContent = `${file.name} (hoja "${sheetName}")`;
         document.getElementById('detectedCols').textContent =
           filas.length + ' filas leídas del Excel · columnas detectadas correctamente' +
           (estadoDisponible ? ' · columna de Estado detectada' : '') +
-          (tecnicoDisponible ? ' · columna de Técnico detectada' : '');
+          (tecnicoDisponible ? ' · columna de Técnico detectada' : '') +
+          (negocioDisponible ? ' · columna de Negocio detectada' : '');
         buildReport(filas, estadoDisponible);
       }catch(err){
         showError('No se pudo procesar el archivo: ' + err.message);
