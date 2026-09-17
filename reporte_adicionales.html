@@ -722,9 +722,6 @@
       .replace(/[^a-z0-9_]+/g,'_').replace(/^_+|_+$/g,'');
   }
 
-  // Convierte la celda a string en formato compatible con el parser.
-  // Si es Date, produce "dd/mm/yyyy HH:MM" (24h) — idéntico al CSV.
-  // Si es solo-hora, produce "HH:MM".
   function valorCeldaExcel(v){
     if (v === null || v === undefined) return '';
     if (v instanceof Date){
@@ -772,15 +769,9 @@
   // ============================================================
   // 2. Fechas y tramos
   // ============================================================
-  // Parser unificado que acepta:
-  //   - Objeto Date (Excel con cellDates:true)
-  //   - "dd/mm/yyyy [HH:MM[:SS]] [AM|PM|a. m.|p. m.]"
-  //   - "yyyy-mm-dd [T ]HH:MM[:SS] [AM|PM]"
-  //   - "HH:MM[:SS] [AM|PM]" (solo hora -> hoy)
   function parseFechaHora(str){
     if(str === null || str === undefined) return null;
 
-    // 1) Si viene como Date (Excel con cellDates:true), usar directo
     if(str instanceof Date){
       return isNaN(str.getTime()) ? null : str;
     }
@@ -788,7 +779,6 @@
     const s = String(str).trim();
     if(!s) return null;
 
-    // Caso A: "dd/mm/yyyy [HH:MM[:SS]] [a.m./p.m./AM/PM]"
     let m = s.match(
       /^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:[\s,]+(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\s*([ap])\.?\s*m\.?)?)?$/i
     );
@@ -804,7 +794,6 @@
       if(!isNaN(dt.getTime())) return dt;
     }
 
-    // Caso B: "yyyy-mm-dd [T ]HH:MM[:SS] [AM/PM]"
     m = s.match(
       /^(\d{4})-(\d{1,2})-(\d{1,2})(?:[\s,T]+(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\s*([ap])\.?\s*m\.?)?)?$/i
     );
@@ -820,7 +809,6 @@
       if(!isNaN(dt.getTime())) return dt;
     }
 
-    // Caso C: "HH:MM[:SS] [AM/PM]" (solo hora -> hoy)
     m = s.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\s*([ap])\.?\s*m\.?)?$/i);
     if(m){
       let h = parseInt(m[1],10);
@@ -837,11 +825,13 @@
     return null;
   }
 
+  // CAMBIO: mapTramo tolerante a variaciones del valor de Tramo_Atencio
+  // Acepta: "08:00", "8:00", "08:00:00", "08-12", "08AM", "08 AM", etc.
   function mapTramo(str){
-    const t = (str || '').trim();
-    if(t === '08:00') return 'T1';
-    if(t === '12:00') return 'T2';
-    if(t === '16:00') return 'T3';
+    const t = (str || '').trim().toUpperCase();
+    if(/^0?8(:00(:00)?)?$/.test(t) || /^08\s*[-–]\s*12/.test(t) || /^08\s*AM/.test(t)) return 'T1';
+    if(/^12(:00(:00)?)?$/.test(t) || /^12\s*[-–]\s*16/.test(t) || /^12\s*PM/.test(t)) return 'T2';
+    if(/^16(:00(:00)?)?$/.test(t) || /^16\s*[-–]\s*20/.test(t) || /^16\s*PM/.test(t)) return 'T3';
     return null;
   }
 
@@ -897,6 +887,8 @@
     return null;
   }
 
+  // CAMBIO: acepta "PROGRAMADO", "PROGRAMADA", "COORDINADO", "COORDINADA",
+  // "PENDIENTE" y vacío → todos van a PENDIENTE.
   function normalizarEstado(v){
     let t = (v||'').toString().trim().toUpperCase()
       .normalize('NFD').replace(/[\u0300-\u036f]/g,'');
@@ -904,7 +896,7 @@
     if(/FINALIZAD/.test(t) || /COMPLETAD/.test(t) || t==='CERRADO' || t==='CERRADA') return 'FINALIZADO';
     if(/EN\s*CAMINO/.test(t) || /EN\s*RUTA/.test(t)) return 'EN CAMINO';
     if(/EN\s*PROCESO/.test(t) || /EN\s*EJECUCION/.test(t) || t==='PROCESO') return 'EN PROCESO';
-    if(/PROGRAMAD/.test(t) || /PENDIENTE/.test(t) || /COORDINAD/.test(t)) return 'PENDIENTE';
+    if(/PROGRAMAD[OA]/.test(t) || /PENDIENTE/.test(t) || /COORDINAD[OA]/.test(t)) return 'PENDIENTE';
     if(/AUSENTE/.test(t) || /NO\s*CONTESTA/.test(t) || /NO\s*SE\s*ENCUENTRA/.test(t)) return 'AUSENTE';
     if(/REPROGRAM/.test(t)) return 'REPROGRAMA';
     if(/CANCELAD/.test(t)) return 'CANCELADO';
@@ -1103,6 +1095,11 @@
 
   // ============================================================
   // 6b. ESTADO POR TÉCNICO
+  //     · T1/T2/T3 SOLO cuentan órdenes en estado PENDIENTE
+  //       (PROGRAMADO / PROGRAMADA / COORDINADO / COORDINADA /
+  //       PENDIENTE / vacío).
+  //     · El turno se determina por el Tramo_Atencio de la orden.
+  //     · PEND. = total de esas mismas órdenes.
   // ============================================================
   const OBJETIVO_EFECTIVIDAD = 0.55;
 
@@ -1155,6 +1152,8 @@
       const rec = porTecnico[tecnico];
       rec.total++;
 
+      // T1/T2/T3 SOLO cuentan si el estado es PENDIENTE
+      // (PROGRAMADO / COORDINADO / PENDIENTE / vacío)
       if(estado === 'PENDIENTE'){
         if(turnoKey === 'T1') rec.t1++;
         else if(turnoKey === 'T2') rec.t2++;
