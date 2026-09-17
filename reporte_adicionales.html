@@ -344,7 +344,8 @@
 
   /* ==========================================================
      CELDAS PINTADAS
-     - EN CAMINO y EN PROCESO llevan fondo de color.
+     - EN CAMINO y EN PROCESO llevan fondo de color SOLO en las
+       filas por técnico (no en la fila TOTAL).
      - PEND. se resalta solo en negrita cuando es > 0 (sin fondo).
      - Los demás estados quedan sin color.
      ========================================================== */
@@ -1030,14 +1031,12 @@
 
   // ============================================================
   // 6b. ESTADO POR TÉCNICO
-  //     Columnas: TÉCNICO | ASIG. | T1 | T2 | T3 | PEND. |
-  //               FINAL. | EN CAMINO | EN PROCESO | OTROS |
-  //               EFECT. | PRODUCT. | INDICADOR
-  //
   //     · PEND. = órdenes en estado PROGRAMADO / PENDIENTE.
   //     · CANC. + REPROG. + AUS. + OTROS se agrupan en OTROS.
   //     · PEND. se muestra en negrita solo cuando es > 0.
-  //     · Solo EN CAMINO y EN PROCESO llevan fondo de color.
+  //     · Solo EN CAMINO y EN PROCESO llevan fondo de color,
+  //       EXCLUSIVAMENTE en las filas por técnico.
+  //       La fila TOTAL no lleva fondo en esas columnas.
   // ============================================================
   const OBJETIVO_EFECTIVIDAD = 0.55;
 
@@ -1253,8 +1252,8 @@
               <td>${t.t3}</td>
               <td class="${t.pendiente > 0 ? 'celda-pendiente' : ''}">${t.pendiente}</td>
               <td>${t.finalizado}</td>
-              <td class="${t.enCamino >= 1 ? 'celda-camino' : ''}">${t.enCamino}</td>
-              <td class="${t.enProceso >= 1 ? 'celda-proceso' : ''}">${t.enProceso}</td>
+              <td>${t.enCamino}</td>
+              <td>${t.enProceso}</td>
               <td>${t.otros}</td>
               <td>${pct1(t.efectividad)}</td>
               <td>${pct1(t.productividad)}</td>
@@ -1290,7 +1289,7 @@
     }).join('');
   }
 
-  // SOLO EN CAMINO y EN PROCESO llevan fondo de color.
+  // SOLO EN CAMINO y EN PROCESO llevan fondo de color en las filas por técnico.
   // PEND. se resalta solo en negrita cuando es > 0 (sin fondo).
   // Los demás estados quedan sin color.
   function tecRowHtml(g){
