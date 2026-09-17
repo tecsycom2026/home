@@ -51,11 +51,6 @@
     /* Fondos suaves (mismo tono, baja opacidad) para celdas con cantidad >= 1 */
     --bg-camino:    #D9E8F7; /* azul suave */
     --bg-proceso:   #E6D9F7; /* morado suave */
-    --bg-finalizado:#D9F0E3; /* verde suave */
-    --bg-cancelado: #F7D9D9; /* rojo suave */
-    --bg-reprograma:#F7ECD0; /* amarillo suave */
-    --bg-ausente:   #F7E3D0; /* naranja suave */
-    --bg-otros:     #E6E8EB; /* gris suave */
 
     --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     --font-num: 'IBM Plex Mono', 'Courier New', monospace;
@@ -348,25 +343,24 @@
   .tec-pill.bad{background:#FEE2E2;color:#DC2626;}
 
   /* ==========================================================
-     CELDAS PINTADAS: cuando la cantidad es >= 1 se pinta el fondo
+     CELDAS PINTADAS
+     - EN CAMINO y EN PROCESO llevan fondo de color.
+     - PEND. se resalta solo en negrita cuando es > 0 (sin fondo).
+     - Los demás estados quedan sin color.
      ========================================================== */
   table.tec-table td.celda-camino,
-  table.tec-table td.celda-proceso,
-  table.tec-table td.celda-finalizado,
-  table.tec-table td.celda-cancelado,
-  table.tec-table td.celda-reprograma,
-  table.tec-table td.celda-ausente,
-  table.tec-table td.celda-otros{
+  table.tec-table td.celda-proceso{
     font-weight:700;
     color:#0F172A;
   }
-  table.tec-table td.celda-camino     { background:var(--bg-camino)     !important; }
-  table.tec-table td.celda-proceso    { background:var(--bg-proceso)    !important; }
-  table.tec-table td.celda-finalizado { background:var(--bg-finalizado) !important; }
-  table.tec-table td.celda-cancelado  { background:var(--bg-cancelado)  !important; }
-  table.tec-table td.celda-reprograma { background:var(--bg-reprograma) !important; }
-  table.tec-table td.celda-ausente    { background:var(--bg-ausente)    !important; }
-  table.tec-table td.celda-otros      { background:var(--bg-otros)      !important; }
+  table.tec-table td.celda-camino  { background:var(--bg-camino)  !important; }
+  table.tec-table td.celda-proceso { background:var(--bg-proceso) !important; }
+
+  /* PEND. solo en negrita cuando es > 0, sin fondo */
+  table.tec-table td.celda-pendiente{
+    font-weight:700;
+    color:#0F172A;
+  }
 </style>
 </head>
 <body>
@@ -797,15 +791,16 @@
     'tecnico_responsable','responsable','empleado','operario','instalador','cuadrilla',
     'nombre_del_tecnico','tecnico_nombre','nom_tecnico','tecnico_principal'];
 
-  const ESTADOS_LIST = ['FINALIZADO','EN CAMINO','EN PROCESO','AUSENTE','REPROGRAMA','CANCELADO','OTROS'];
+  const ESTADOS_LIST = ['PENDIENTE','FINALIZADO','EN CAMINO','EN PROCESO','AUSENTE','REPROGRAMA','CANCELADO','OTROS'];
   const ESTADO_COLORS = {
+    'PENDIENTE':  '#94A3B8',                    // gris
     'FINALIZADO': 'var(--estado-finalizado)',
-    'EN CAMINO': 'var(--estado-camino)',
+    'EN CAMINO':  'var(--estado-camino)',
     'EN PROCESO': 'var(--estado-proceso)',
-    'AUSENTE': 'var(--estado-ausente)',
+    'AUSENTE':    'var(--estado-ausente)',
     'REPROGRAMA': 'var(--estado-reprograma)',
-    'CANCELADO': 'var(--estado-cancelado)',
-    'OTROS': 'var(--estado-otros)'
+    'CANCELADO':  'var(--estado-cancelado)',
+    'OTROS':      'var(--estado-otros)'
   };
 
   function normalizaTexto(h){
@@ -828,13 +823,15 @@
     return null;
   }
 
+  // PROGRAMADO / PENDIENTE / estado vacío -> "PENDIENTE"
   function normalizarEstado(v){
     let t = (v||'').toString().trim().toUpperCase()
       .normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-    if(!t) return 'OTROS';
+    if(!t) return 'PENDIENTE';
     if(/FINALIZAD/.test(t) || /COMPLETAD/.test(t) || t==='CERRADO' || t==='CERRADA') return 'FINALIZADO';
     if(/EN\s*CAMINO/.test(t) || /EN\s*RUTA/.test(t)) return 'EN CAMINO';
     if(/EN\s*PROCESO/.test(t) || /EN\s*EJECUCION/.test(t) || t==='PROCESO') return 'EN PROCESO';
+    if(/PROGRAMAD/.test(t) || /PENDIENTE/.test(t)) return 'PENDIENTE';
     if(/AUSENTE/.test(t) || /NO\s*CONTESTA/.test(t) || /NO\s*SE\s*ENCUENTRA/.test(t)) return 'AUSENTE';
     if(/REPROGRAM/.test(t)) return 'REPROGRAMA';
     if(/CANCELAD/.test(t)) return 'CANCELADO';
@@ -1032,7 +1029,15 @@
   }
 
   // ============================================================
-  // 6b. ESTADO POR TÉCNICO — con columnas EN CAMINO y EN PROCESO
+  // 6b. ESTADO POR TÉCNICO
+  //     Columnas: TÉCNICO | ASIG. | T1 | T2 | T3 | PEND. |
+  //               FINAL. | EN CAMINO | EN PROCESO | OTROS |
+  //               EFECT. | PRODUCT. | INDICADOR
+  //
+  //     · PEND. = órdenes en estado PROGRAMADO / PENDIENTE.
+  //     · CANC. + REPROG. + AUS. + OTROS se agrupan en OTROS.
+  //     · PEND. se muestra en negrita solo cuando es > 0.
+  //     · Solo EN CAMINO y EN PROCESO llevan fondo de color.
   // ============================================================
   const OBJETIVO_EFECTIVIDAD = 0.55;
 
@@ -1050,9 +1055,14 @@
       if(!distrito || !hProgra) return;
 
       let bucketKey = null;
+      let turnoKey = null;
+
       if(hProgra < limite08){
         const tk = mapTramo(row['Tramo_Atencio']);
-        if(tk) bucketKey = tk;
+        if(tk){
+          bucketKey = tk;
+          turnoKey = tk;
+        }
       } else {
         const h = hProgra.getHours();
         if(HOURS.includes(h)) bucketKey = 'H'+h;
@@ -1069,29 +1079,32 @@
         porTecnico[tecnico] = {
           key: tecnico,
           total: 0,
+          t1: 0, t2: 0, t3: 0,
+          pendiente: 0,
           finalizado: 0,
           enCamino: 0,
           enProceso: 0,
-          ausente: 0,
-          reprograma: 0,
-          cancelado: 0,
           otros: 0
         };
       }
       const rec = porTecnico[tecnico];
       rec.total++;
-      if(estado === 'FINALIZADO') rec.finalizado++;
-      else if(estado === 'EN CAMINO') rec.enCamino++;
+
+      if(turnoKey === 'T1') rec.t1++;
+      else if(turnoKey === 'T2') rec.t2++;
+      else if(turnoKey === 'T3') rec.t3++;
+
+      // PENDIENTE se cuenta directamente por estado PROGRAMADO / PENDIENTE / vacío
+      if(estado === 'PENDIENTE')       rec.pendiente++;
+      else if(estado === 'FINALIZADO') rec.finalizado++;
+      else if(estado === 'EN CAMINO')  rec.enCamino++;
       else if(estado === 'EN PROCESO') rec.enProceso++;
-      else if(estado === 'AUSENTE') rec.ausente++;
-      else if(estado === 'REPROGRAMA') rec.reprograma++;
-      else if(estado === 'CANCELADO') rec.cancelado++;
-      else rec.otros++;
+      else                             rec.otros++;   // AUSENTE / REPROGRAMA / CANCELADO / OTROS
     });
 
     Object.values(porTecnico).forEach(g => {
       g.efectividad = g.total ? g.finalizado / g.total : 0;
-      g.productividad = g.total ? (g.finalizado + g.cancelado + g.reprograma) / g.total : 0;
+      g.productividad = g.total ? (g.finalizado + g.otros) / g.total : 0;
     });
 
     return {totalPorEstado, porTecnico, granTotal};
@@ -1099,21 +1112,24 @@
 
   function totalesTecnicos(list){
     const t = {
-      key: 'TOTAL', total:0, finalizado:0, enCamino:0, enProceso:0,
-      ausente:0, reprograma:0, cancelado:0, otros:0
+      key: 'TOTAL', total:0,
+      t1:0, t2:0, t3:0,
+      pendiente:0,
+      finalizado:0, enCamino:0, enProceso:0, otros:0
     };
     list.forEach(g => {
       t.total += g.total;
+      t.t1 += g.t1;
+      t.t2 += g.t2;
+      t.t3 += g.t3;
+      t.pendiente += g.pendiente;
       t.finalizado += g.finalizado;
       t.enCamino += g.enCamino;
       t.enProceso += g.enProceso;
-      t.ausente += g.ausente;
-      t.reprograma += g.reprograma;
-      t.cancelado += g.cancelado;
       t.otros += g.otros;
     });
     t.efectividad = t.total ? t.finalizado / t.total : 0;
-    t.productividad = t.total ? (t.finalizado + t.cancelado + t.reprograma) / t.total : 0;
+    t.productividad = t.total ? (t.finalizado + t.otros) / t.total : 0;
     return t;
   }
 
@@ -1214,12 +1230,13 @@
             <tr>
               <th data-key="key">TÉCNICO</th>
               <th data-key="total">ASIG.</th>
+              <th data-key="t1">T1</th>
+              <th data-key="t2">T2</th>
+              <th data-key="t3">T3</th>
+              <th data-key="pendiente">PEND.</th>
               <th data-key="finalizado">FINAL.</th>
               <th data-key="enCamino">EN CAMINO</th>
               <th data-key="enProceso">EN PROCESO</th>
-              <th data-key="cancelado">CANC.</th>
-              <th data-key="reprograma">REPROG.</th>
-              <th data-key="ausente">AUS.</th>
               <th data-key="otros">OTROS</th>
               <th data-key="efectividad">EFECT.</th>
               <th data-key="productividad">PRODUCT.</th>
@@ -1231,12 +1248,13 @@
             <tr class="total-row">
               <td>TOTAL</td>
               <td>${t.total}</td>
+              <td>${t.t1}</td>
+              <td>${t.t2}</td>
+              <td>${t.t3}</td>
+              <td class="${t.pendiente > 0 ? 'celda-pendiente' : ''}">${t.pendiente}</td>
               <td>${t.finalizado}</td>
               <td class="${t.enCamino >= 1 ? 'celda-camino' : ''}">${t.enCamino}</td>
               <td class="${t.enProceso >= 1 ? 'celda-proceso' : ''}">${t.enProceso}</td>
-              <td>${t.cancelado}</td>
-              <td>${t.reprograma}</td>
-              <td>${t.ausente}</td>
               <td>${t.otros}</td>
               <td>${pct1(t.efectividad)}</td>
               <td>${pct1(t.productividad)}</td>
@@ -1272,26 +1290,25 @@
     }).join('');
   }
 
-  // Celdas con color de fondo cuando la cantidad es >= 1
+  // SOLO EN CAMINO y EN PROCESO llevan fondo de color.
+  // PEND. se resalta solo en negrita cuando es > 0 (sin fondo).
+  // Los demás estados quedan sin color.
   function tecRowHtml(g){
-    const clsCamino    = g.enCamino   >= 1 ? 'celda-camino'   : '';
-    const clsProceso   = g.enProceso  >= 1 ? 'celda-proceso'  : '';
-    const clsFinal     = g.finalizado >= 1 ? 'celda-finalizado' : '';
-    const clsCanc      = g.cancelado  >= 1 ? 'celda-cancelado'  : '';
-    const clsReprog    = g.reprograma >= 1 ? 'celda-reprograma' : '';
-    const clsAusente   = g.ausente    >= 1 ? 'celda-ausente'    : '';
-    const clsOtros     = g.otros      >= 1 ? 'celda-otros'      : '';
+    const clsCamino  = g.enCamino  >= 1 ? 'celda-camino'  : '';
+    const clsProceso = g.enProceso >= 1 ? 'celda-proceso' : '';
+    const clsPend    = g.pendiente > 0  ? 'celda-pendiente' : '';
 
     return `<tr>
       <td title="${escapeHtml(g.key)}">${escapeHtml(g.key)}</td>
       <td>${g.total}</td>
-      <td class="${clsFinal}">${g.finalizado}</td>
+      <td>${g.t1}</td>
+      <td>${g.t2}</td>
+      <td>${g.t3}</td>
+      <td class="${clsPend}">${g.pendiente}</td>
+      <td>${g.finalizado}</td>
       <td class="${clsCamino}">${g.enCamino}</td>
       <td class="${clsProceso}">${g.enProceso}</td>
-      <td class="${clsCanc}">${g.cancelado}</td>
-      <td class="${clsReprog}">${g.reprograma}</td>
-      <td class="${clsAusente}">${g.ausente}</td>
-      <td class="${clsOtros}">${g.otros}</td>
+      <td>${g.otros}</td>
       <td>${pct1(g.efectividad)}</td>
       <td>${pct1(g.productividad)}</td>
       <td>${tecIndicadorHtml(g.efectividad, g.total, g.finalizado)}</td>
@@ -1359,13 +1376,14 @@
     XLSX.utils.book_append_sheet(wb, ws, 'ADICIONALES');
 
     if(window.__lastPorTecnico){
-      const headersTec = ['TECNICO','ASIG.','FINAL.','EN CAMINO','EN PROCESO','CANC.','REPROG.','AUS.','OTROS','EFECT.','PRODUCT.','INDICADOR'];
+      const headersTec = ['TECNICO','ASIG.','T1','T2','T3','PEND.','FINAL.','EN CAMINO','EN PROCESO','OTROS','EFECT.','PRODUCT.','INDICADOR'];
       const aoaTec = [headersTec];
       Object.values(window.__lastPorTecnico)
         .sort((a,b)=> a.key.localeCompare(b.key))
         .forEach(o=>{
           aoaTec.push([
-            o.key, o.total, o.finalizado, o.enCamino, o.enProceso, o.cancelado, o.reprograma, o.ausente, o.otros,
+            o.key, o.total, o.t1, o.t2, o.t3, o.pendiente,
+            o.finalizado, o.enCamino, o.enProceso, o.otros,
             +(o.efectividad*100).toFixed(1)+'%', +(o.productividad*100).toFixed(1)+'%',
             o.efectividad >= OBJETIVO_EFECTIVIDAD ? 'OK' : ('Falta ' + Math.max(Math.ceil(o.total*OBJETIVO_EFECTIVIDAD) - o.finalizado, 0))
           ]);
