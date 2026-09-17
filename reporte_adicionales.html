@@ -363,6 +363,80 @@
     font-weight:700;
     color:#0F172A;
   }
+
+  /* ==========================================================
+     Tarjetas KPI de Efectividad
+     ========================================================== */
+  .efectividad-cards{
+    display:grid;
+    grid-template-columns:repeat(4, 1fr);
+    gap:14px;
+    margin-bottom:18px;
+  }
+  @media (max-width: 900px){
+    .efectividad-cards{grid-template-columns:repeat(2, 1fr);}
+  }
+  @media (max-width: 520px){
+    .efectividad-cards{grid-template-columns:1fr;}
+  }
+  .ef-card{
+    background:var(--paper-2);
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:16px 18px;
+    position:relative;
+    overflow:hidden;
+    min-width:0;
+  }
+  .ef-card .ef-label{
+    font-size:11px;
+    font-weight:700;
+    letter-spacing:.04em;
+    color:var(--muted);
+    text-transform:uppercase;
+    margin-bottom:10px;
+    display:flex;align-items:center;justify-content:space-between;gap:8px;
+  }
+  .ef-card .ef-value{
+    font-family:var(--font-num);
+    font-size:26px;
+    font-weight:700;
+    color:var(--ink);
+    line-height:1.1;
+  }
+  .ef-card .ef-sub{
+    font-size:11.5px;
+    color:var(--muted);
+    margin-top:6px;
+    font-family:var(--font-num);
+  }
+  .ef-card.green{border-left:4px solid var(--estado-finalizado);}
+  .ef-card.blue {border-left:4px solid var(--estado-camino);}
+  .ef-card.purple{border-left:4px solid var(--estado-proceso);}
+  .ef-card.amber{border-left:4px solid var(--estado-reprograma);}
+  .ef-card.green .ef-value{color:var(--estado-finalizado);}
+  .ef-card.blue  .ef-value{color:var(--estado-camino);}
+  .ef-card.purple .ef-value{color:var(--estado-proceso);}
+  .ef-card.amber .ef-value{color:var(--estado-reprograma);}
+
+  .ef-target-edit{
+    display:inline-flex;align-items:center;gap:3px;
+    font-family:var(--font-num);font-size:11px;color:var(--muted);
+    background:transparent;border:none;
+  }
+  .ef-target-edit input{
+    width:44px;
+    text-align:center;
+    font-family:var(--font-num);
+    font-size:12px;
+    font-weight:700;
+    color:var(--ink);
+    border:1px solid var(--line);
+    border-radius:4px;
+    padding:2px 3px;
+    background:#fff;
+  }
+  .ef-target-edit input:focus{outline:2px solid var(--grupo3);outline-offset:1px;}
 </style>
 </head>
 <body>
@@ -510,6 +584,37 @@
         <div id="estadoAviso" class="info-note" style="display:none;"></div>
         <div id="estadoContent" style="display:none;">
 
+          <!-- ======== Tarjetas de Efectividad / Productividad ======== -->
+          <div class="efectividad-cards" id="efectividadCards">
+            <div class="ef-card green">
+              <div class="ef-label">Efectividad Finalizados</div>
+              <div class="ef-value" id="efFinalizados">—</div>
+              <div class="ef-sub" id="efFinalizadosSub">—</div>
+            </div>
+            <div class="ef-card blue">
+              <div class="ef-label">Efectividad Aproximada</div>
+              <div class="ef-value" id="efAproximada">—</div>
+              <div class="ef-sub" id="efAproximadaSub">Finalizados + En Proceso</div>
+            </div>
+            <div class="ef-card purple">
+              <div class="ef-label">Productividad Promedio</div>
+              <div class="ef-value" id="efPromedio">—</div>
+              <div class="ef-sub" id="efPromedioSub">Efectivos por técnico activo</div>
+            </div>
+            <div class="ef-card amber">
+              <div class="ef-label">
+                Faltan para Objetivo
+                <span class="ef-target-edit">
+                  <input type="number" id="efObjetivo" min="1" max="100" step="1" value="65">
+                  <span>%</span>
+                </span>
+              </div>
+              <div class="ef-value" id="efFaltan">—</div>
+              <div class="ef-sub" id="efFaltanSub">—</div>
+            </div>
+          </div>
+          <!-- ========================================================= -->
+
           <div class="avance-bar-wrap">
             <div class="avance-bar" id="avanceBar"></div>
             <div class="avance-legend" id="avanceLegend"></div>
@@ -532,6 +637,21 @@
 
 <script>
 (function(){
+
+  // ============================================================
+  // OBJETIVO de efectividad EDITABLE y PERSISTENTE (localStorage)
+  // ============================================================
+  const LS_KEY = 'peru_fibra_objetivo_efectividad';
+  let OBJETIVO_EFECTIVIDAD = 0.65;
+  try{
+    const saved = parseFloat(localStorage.getItem(LS_KEY));
+    if(!isNaN(saved) && saved > 0 && saved <= 1) OBJETIVO_EFECTIVIDAD = saved;
+  }catch(e){ /* localStorage no disponible */ }
+
+  function guardarObjetivo(v01){
+    OBJETIVO_EFECTIVIDAD = v01;
+    try{ localStorage.setItem(LS_KEY, String(v01)); }catch(e){}
+  }
 
   // ============================================================
   // 0. Configuración de zonas
@@ -825,8 +945,6 @@
     return null;
   }
 
-  // CAMBIO: mapTramo tolerante a variaciones del valor de Tramo_Atencio
-  // Acepta: "08:00", "8:00", "08:00:00", "08-12", "08AM", "08 AM", etc.
   function mapTramo(str){
     const t = (str || '').trim().toUpperCase();
     if(/^0?8(:00(:00)?)?$/.test(t) || /^08\s*[-–]\s*12/.test(t) || /^08\s*AM/.test(t)) return 'T1';
@@ -887,8 +1005,6 @@
     return null;
   }
 
-  // CAMBIO: acepta "PROGRAMADO", "PROGRAMADA", "COORDINADO", "COORDINADA",
-  // "PENDIENTE" y vacío → todos van a PENDIENTE.
   function normalizarEstado(v){
     let t = (v||'').toString().trim().toUpperCase()
       .normalize('NFD').replace(/[\u0300-\u036f]/g,'');
@@ -1095,14 +1211,7 @@
 
   // ============================================================
   // 6b. ESTADO POR TÉCNICO
-  //     · T1/T2/T3 SOLO cuentan órdenes en estado PENDIENTE
-  //       (PROGRAMADO / PROGRAMADA / COORDINADO / COORDINADA /
-  //       PENDIENTE / vacío).
-  //     · El turno se determina por el Tramo_Atencio de la orden.
-  //     · PEND. = total de esas mismas órdenes.
   // ============================================================
-  const OBJETIVO_EFECTIVIDAD = 0.55;
-
   const tecSortState = { key: 'total', dir: -1 };
   let tecLastPorTecnico = null;
 
@@ -1152,8 +1261,6 @@
       const rec = porTecnico[tecnico];
       rec.total++;
 
-      // T1/T2/T3 SOLO cuentan si el estado es PENDIENTE
-      // (PROGRAMADO / COORDINADO / PENDIENTE / vacío)
       if(estado === 'PENDIENTE'){
         if(turnoKey === 'T1') rec.t1++;
         else if(turnoKey === 'T2') rec.t2++;
@@ -1199,6 +1306,45 @@
   }
 
   function pct1(x){ return (x*100).toFixed(0) + '%'; }
+  function pctN(x, n){ return (x*100).toFixed(n) + '%'; }
+
+  // ============================================================
+  // Tarjetas de Efectividad / Productividad
+  // ============================================================
+  function renderEfectividadCards(porTecnico, granTotal){
+    const list = Object.values(porTecnico || {});
+    const t = totalesTecnicos(list);
+
+    // 1) Efectividad Finalizados = FINALIZADO / TOTAL
+    const efFin = t.total ? (t.finalizado / t.total) : 0;
+    document.getElementById('efFinalizados').textContent = pctN(efFin, 1);
+    document.getElementById('efFinalizadosSub').textContent =
+      t.finalizado + ' finalizados / ' + t.total + ' asignados';
+
+    // 2) Efectividad Aproximada = (FINALIZADO + EN PROCESO) / TOTAL
+    const efAprox = t.total ? ((t.finalizado + t.enProceso) / t.total) : 0;
+    document.getElementById('efAproximada').textContent = pctN(efAprox, 1);
+    document.getElementById('efAproximadaSub').textContent =
+      (t.finalizado + t.enProceso) + ' (final. + en proc.) / ' + t.total + ' asignados';
+
+    // 3) Productividad Promedio = FINALIZADOS / técnicos activos
+    //    "Técnico activo" = técnico con al menos 1 OT asignada.
+    const tecnicosActivos = list.filter(g => g.total > 0).length;
+    const prodProm = tecnicosActivos > 0 ? (t.finalizado / tecnicosActivos) : 0;
+    document.getElementById('efPromedio').textContent = prodProm.toFixed(1);
+    document.getElementById('efPromedioSub').textContent =
+      'Efectivos por técnico activo (' + tecnicosActivos + ' activo' + (tecnicosActivos === 1 ? '' : 's') + ')';
+
+    // 4) Faltan para Objetivo
+    const objetivo = OBJETIVO_EFECTIVIDAD;
+    let faltan = Math.ceil(objetivo * t.total) - t.finalizado;
+    if (faltan < 0) faltan = 0;
+    document.getElementById('efFaltan').textContent = faltan;
+    const objetivoPct = Math.round(objetivo * 100);
+    document.getElementById('efFaltanSub').textContent =
+      'Meta global: ' + objetivoPct + '% · actual: ' + pctN(efFin, 1) +
+      (faltan > 0 ? ' · faltan ' + faltan + ' efectivas' : ' · meta alcanzada ✅');
+  }
 
   function renderEstados(rows, limite08){
     const layout = document.getElementById('estadoLayout');
@@ -1223,6 +1369,8 @@
     const {totalPorEstado, porTecnico, granTotal} = construirPorTecnico(rows, limite08);
     window.__lastPorTecnico = porTecnico;
     window.__lastEstadosTotales = totalPorEstado;
+
+    renderEfectividadCards(porTecnico, granTotal);
 
     tecLastPorTecnico = porTecnico;
     renderTecnicosPanel(porTecnico);
@@ -1284,9 +1432,10 @@
       return (va > vb ? 1 : -1) * d;
     });
 
+    const objetivoPct = Math.round(OBJETIVO_EFECTIVIDAD * 100);
     panel.innerHTML = `
       <h2>Estado por técnico</h2>
-      <div class="panel-sub">${list.length} técnicos · ${t.total} OT en el filtro actual · Objetivo de efectividad: ${pct1(OBJETIVO_EFECTIVIDAD)}</div>
+      <div class="panel-sub">${list.length} técnicos · ${t.total} OT en el filtro actual · Objetivo de efectividad: ${objetivoPct}%</div>
       <div class="tec-barchart">${barChartTecnicos(sorted)}</div>
       <div class="tec-table-scroll">
         <table class="tec-table">
@@ -1506,6 +1655,24 @@
   document.getElementById('btnLimpiarFiltro').addEventListener('click', ()=>{
     document.getElementById('filtroNegocio').value = '';
     if(window.__lastRowsAll) buildReport(window.__lastRowsAll);
+  });
+
+  // ============================================================
+  // Input editable del OBJETIVO (persistente)
+  // ============================================================
+  const objetivoInput = document.getElementById('efObjetivo');
+  objetivoInput.value = Math.round(OBJETIVO_EFECTIVIDAD * 100);
+
+  objetivoInput.addEventListener('change', ()=>{
+    let v = parseFloat(objetivoInput.value);
+    if(isNaN(v) || v <= 0) v = 65;
+    if(v > 100) v = 100;
+    objetivoInput.value = v;
+    guardarObjetivo(v / 100);
+    if(window.__lastRows) buildReport(window.__lastRowsAll);
+  });
+  objetivoInput.addEventListener('keydown', (e)=>{
+    if(e.key === 'Enter'){ e.preventDefault(); objetivoInput.blur(); }
   });
 
   function showError(msg){
