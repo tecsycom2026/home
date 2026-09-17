@@ -48,9 +48,8 @@
     --estado-cancelado:#990000;
     --estado-otros:#5B6472;
 
-    /* Fondos suaves (mismo tono, baja opacidad) para celdas con cantidad >= 1 */
-    --bg-camino:    #D9E8F7; /* azul suave */
-    --bg-proceso:   #E6D9F7; /* morado suave */
+    --bg-camino:    #D9E8F7;
+    --bg-proceso:   #E6D9F7;
 
     --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     --font-num: 'IBM Plex Mono', 'Courier New', monospace;
@@ -93,7 +92,6 @@
 
   main{max-width:1440px;margin:0 auto;padding:clamp(16px,3vw,32px);}
 
-  /* ---------- Panel de carga ---------- */
   .upload-card{
     background:var(--paper-2);border:1px solid var(--line);border-radius:10px;
     padding:clamp(20px,4vw,36px);display:flex;flex-direction:column;align-items:center;
@@ -232,7 +230,6 @@
 
   #detectedCols{font-family:var(--font-num);font-size:11.5px;color:var(--muted);}
 
-  /* ---------- Sección ESTADO POR TÉCNICO ---------- */
   .estado-layout{margin-top:26px;}
   .info-note{
     background:#EEF3F8;border:1px solid var(--line);border-radius:6px;
@@ -249,7 +246,6 @@
     margin-right:6px;vertical-align:middle;
   }
 
-  /* Layout general */
   .page-layout{display:flex;align-items:flex-start;gap:14px;margin-top:22px;}
   .sidebar-handle{
     flex:0 0 auto;width:26px;height:40px;position:sticky;top:16px;
@@ -289,9 +285,6 @@
   }
   .avance-legend .item{display:flex;align-items:center;}
 
-  /* ==========================================================
-     SECCIÓN TÉCNICOS: réplica del estilo del Panel de gestión
-     ========================================================== */
   #tecnicosWrap{margin-top:0;}
   #tecnicosPanel{
     background:var(--paper-2);
@@ -342,13 +335,6 @@
   .tec-pill.ok{background:#DCFCE7;color:#15803D;}
   .tec-pill.bad{background:#FEE2E2;color:#DC2626;}
 
-  /* ==========================================================
-     CELDAS PINTADAS
-     - EN CAMINO y EN PROCESO llevan fondo de color SOLO en las
-       filas por técnico (no en la fila TOTAL).
-     - PEND. se resalta solo en negrita cuando es > 0 (sin fondo).
-     - Los demás estados quedan sin color.
-     ========================================================== */
   table.tec-table td.celda-camino,
   table.tec-table td.celda-proceso{
     font-weight:700;
@@ -357,7 +343,6 @@
   table.tec-table td.celda-camino  { background:var(--bg-camino)  !important; }
   table.tec-table td.celda-proceso { background:var(--bg-proceso) !important; }
 
-  /* PEND. solo en negrita cuando es > 0, sin fondo */
   table.tec-table td.celda-pendiente{
     font-weight:700;
     color:#0F172A;
@@ -489,7 +474,6 @@
         <p class="nota" id="notaPie"></p>
       </section>
 
-      <!-- ============ SECCIÓN: ESTADO POR TÉCNICO ============ -->
       <div class="estado-layout" id="estadoLayout" style="display:none;">
         <div class="report-toolbar">
           <div class="title-group">
@@ -794,7 +778,7 @@
 
   const ESTADOS_LIST = ['PENDIENTE','FINALIZADO','EN CAMINO','EN PROCESO','AUSENTE','REPROGRAMA','CANCELADO','OTROS'];
   const ESTADO_COLORS = {
-    'PENDIENTE':  '#94A3B8',                    // gris
+    'PENDIENTE':  '#94A3B8',
     'FINALIZADO': 'var(--estado-finalizado)',
     'EN CAMINO':  'var(--estado-camino)',
     'EN PROCESO': 'var(--estado-proceso)',
@@ -824,7 +808,7 @@
     return null;
   }
 
-  // PROGRAMADO / PENDIENTE / estado vacío -> "PENDIENTE"
+  // PROGRAMADO / PENDIENTE / COORDINADO / vacío -> "PENDIENTE"
   function normalizarEstado(v){
     let t = (v||'').toString().trim().toUpperCase()
       .normalize('NFD').replace(/[\u0300-\u036f]/g,'');
@@ -832,7 +816,7 @@
     if(/FINALIZAD/.test(t) || /COMPLETAD/.test(t) || t==='CERRADO' || t==='CERRADA') return 'FINALIZADO';
     if(/EN\s*CAMINO/.test(t) || /EN\s*RUTA/.test(t)) return 'EN CAMINO';
     if(/EN\s*PROCESO/.test(t) || /EN\s*EJECUCION/.test(t) || t==='PROCESO') return 'EN PROCESO';
-    if(/PROGRAMAD/.test(t) || /PENDIENTE/.test(t)) return 'PENDIENTE';
+    if(/PROGRAMAD/.test(t) || /PENDIENTE/.test(t) || /COORDINAD/.test(t)) return 'PENDIENTE';
     if(/AUSENTE/.test(t) || /NO\s*CONTESTA/.test(t) || /NO\s*SE\s*ENCUENTRA/.test(t)) return 'AUSENTE';
     if(/REPROGRAM/.test(t)) return 'REPROGRAMA';
     if(/CANCELAD/.test(t)) return 'CANCELADO';
@@ -1031,12 +1015,13 @@
 
   // ============================================================
   // 6b. ESTADO POR TÉCNICO
-  //     · PEND. = órdenes en estado PROGRAMADO / PENDIENTE.
+  //     · T1/T2/T3 solo cuentan órdenes en estado PENDIENTE
+  //       (PROGRAMADO / COORDINADO / PENDIENTE / vacío).
+  //     · PEND. = total de órdenes en estado PROGRAMADO/COORDINADO.
   //     · CANC. + REPROG. + AUS. + OTROS se agrupan en OTROS.
   //     · PEND. se muestra en negrita solo cuando es > 0.
-  //     · Solo EN CAMINO y EN PROCESO llevan fondo de color,
-  //       EXCLUSIVAMENTE en las filas por técnico.
-  //       La fila TOTAL no lleva fondo en esas columnas.
+  //     · Solo EN CAMINO y EN PROCESO llevan fondo de color en las
+  //       filas por técnico (la fila TOTAL no lleva fondo).
   // ============================================================
   const OBJETIVO_EFECTIVIDAD = 0.55;
 
@@ -1089,12 +1074,15 @@
       const rec = porTecnico[tecnico];
       rec.total++;
 
-      if(turnoKey === 'T1') rec.t1++;
-      else if(turnoKey === 'T2') rec.t2++;
-      else if(turnoKey === 'T3') rec.t3++;
+      // T1/T2/T3 SOLO cuentan si el estado es PENDIENTE
+      // (es decir, PROGRAMADO / COORDINADO / PENDIENTE / vacío).
+      if(estado === 'PENDIENTE'){
+        if(turnoKey === 'T1') rec.t1++;
+        else if(turnoKey === 'T2') rec.t2++;
+        else if(turnoKey === 'T3') rec.t3++;
 
-      // PENDIENTE se cuenta directamente por estado PROGRAMADO / PENDIENTE / vacío
-      if(estado === 'PENDIENTE')       rec.pendiente++;
+        rec.pendiente++;
+      }
       else if(estado === 'FINALIZADO') rec.finalizado++;
       else if(estado === 'EN CAMINO')  rec.enCamino++;
       else if(estado === 'EN PROCESO') rec.enProceso++;
@@ -1203,7 +1191,6 @@
     }
   }
 
-  // ---------- Render del panel "Por técnico" ----------
   function renderTecnicosPanel(porTecnico){
     const panel = document.getElementById('tecnicosPanel');
     if (!panel) return;
@@ -1289,9 +1276,6 @@
     }).join('');
   }
 
-  // SOLO EN CAMINO y EN PROCESO llevan fondo de color en las filas por técnico.
-  // PEND. se resalta solo en negrita cuando es > 0 (sin fondo).
-  // Los demás estados quedan sin color.
   function tecRowHtml(g){
     const clsCamino  = g.enCamino  >= 1 ? 'celda-camino'  : '';
     const clsProceso = g.enProceso >= 1 ? 'celda-proceso' : '';
