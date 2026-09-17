@@ -437,7 +437,7 @@
       <section class="report-section">
         <div class="report-toolbar">
           <div class="title-group">
-            <h2>Detalle por distrito</h2>
+            <h2>Reporte inicial y Adicionales por hora</h2>
             <span id="detectedCols"></span>
           </div>
           <div class="toolbar-actions">
@@ -477,7 +477,7 @@
       <div class="estado-layout" id="estadoLayout" style="display:none;">
         <div class="report-toolbar">
           <div class="title-group">
-            <h2>Estado por técnico</h2>
+            <h2>Evolutivo</h2>
             <span id="estadoInfo"></span>
           </div>
         </div>
@@ -1207,7 +1207,7 @@
     });
 
     panel.innerHTML = `
-      <h2>Por técnico (cuadrilla)</h2>
+      <h2>Estado por técnico</h2>
       <div class="panel-sub">${list.length} técnicos · ${t.total} OT en el filtro actual · Objetivo de efectividad: ${pct1(OBJETIVO_EFECTIVIDAD)}</div>
       <div class="tec-barchart">${barChartTecnicos(sorted)}</div>
       <div class="tec-table-scroll">
