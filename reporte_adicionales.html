@@ -1196,7 +1196,8 @@
       tr.appendChild(numCell(f.t3));
       tr.appendChild(numCell(f.total));
       HOURS.forEach(h=> tr.appendChild(numCell(f.horas[h])));
-      tr.appendChild(numCell(f.totalHoras));
+      const totalCombinado = (f.tipo === 'dato') ? f.totalHoras : (f.total + f.totalHoras);
+      tr.appendChild(numCell(totalCombinado));
 
       body.appendChild(tr);
     });
@@ -1601,10 +1602,11 @@
       "9AM","10AM","11AM","12PM","1PM","2PM","3PM","4PM","5PM","6PM","TOTAL 9AM+"];
     const aoa = [headers];
     window.__lastFilas.forEach(f=>{
+      const totalCombinado = (f.tipo === 'dato') ? f.totalHoras : (f.total + f.totalHoras);
       aoa.push([
         f.tipo === 'dato' ? f.zona : '',
         f.distrito, f.t1, f.t2, f.t3, f.total,
-        ...HOURS.map(h=>f.horas[h]), f.totalHoras
+        ...HOURS.map(h=>f.horas[h]), totalCombinado
       ]);
     });
     const ws = XLSX.utils.aoa_to_sheet(aoa);
