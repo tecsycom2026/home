@@ -446,7 +446,7 @@
     <span class="kicker">PERU FIBRA · OPERACIONES DE CAMPO</span>
     <h1>Reporte de Adicionales por Hora</h1>
   </div>
-  <div class="ref-badge" id="refBadge">Fecha de referencia: <b id="refFecha">—</b> · corte turnos: <b id="refCorte">08:59</b></div>
+  <div class="ref-badge" id="refBadge">Fecha de referencia: <b id="refFecha">—</b> · corte turnos: <b id="refCorte">09:00</b></div>
 </header>
 
 <main>
@@ -1024,7 +1024,7 @@
   // ============================================================
   function procesarDatos(rows){
     const hoy = new Date();
-    const limite08 = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate(), 8, 59, 0);
+    const limite08 = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate(), 9, 0, 0);
 
     const zoneRuleMap = new Map();
     zonaRules.forEach(r=>{
@@ -1586,7 +1586,7 @@
     const hoy = new Date();
     const fmt = (d)=> String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear();
     document.getElementById('refFecha').textContent = fmt(hoy);
-    document.getElementById('refCorte').textContent = '08:59 am';
+    document.getElementById('refCorte').textContent = '09:00 am';
 
     document.getElementById('notaPie').textContent =
       'Reporte generado: ' + hoy.toLocaleString('es-PE') +
