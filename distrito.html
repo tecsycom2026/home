@@ -731,5 +731,26 @@ document.getElementById('districtSearch').addEventListener('input', (e) => {
   });
 });
 </script>
+<script>
+// Panel (index.html): recibe el archivo cargado arriba y lo entrega al input CSV/Excel de esta web
+window.addEventListener('message', function(e){
+  if (e.source !== window.parent || !e.data) return;
+  if (e.data.type === 'pf-cargar-archivo' && e.data.file){
+    var f = e.data.file;
+    var input = document.getElementById(/\.csv$/i.test(f.name) ? 'fileInputCsv' : 'fileInput');
+    if (!input) return;
+    try{
+      var dt = new DataTransfer(); dt.items.add(f);
+      input.files = dt.files;
+      input.dispatchEvent(new Event('change', {bubbles:true}));
+    }catch(err){ console.error('No se pudo cargar el archivo desde el panel:', err); }
+  } else if (e.data.type === 'pf-mostrar'){
+    // al volver a mostrar la pestaña, los gráficos se reajustan al tamaño real
+    try{ if (typeof chartInstance !== 'undefined' && chartInstance) chartInstance.resize(); }catch(err){}
+    window.dispatchEvent(new Event('resize'));
+  }
+});
+</script>
+
 </body>
 </html>
