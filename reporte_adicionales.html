@@ -466,8 +466,8 @@
     <h2>Sube el CSV o el Excel de la vista (AppSheet_ViewData)</h2>
     <p>Arrastra el archivo aquí o selecciónalo. Debe incluir las columnas <b>Distrito</b>, <b>Provincia</b>, <b>H_Progra</b> y <b>Tramo_Atencio</b>, igual que el export de AppSheet. Con Excel se lee automáticamente la hoja <b>BASE_PERUFIBRA</b>.</p>
     <div class="upload-buttons">
-      <label class="file-input-label" for="csvInput">Seleccionar archivo CSV</label>
-      <label class="file-input-label excel" for="excelInput">Seleccionar archivo Excel</label>
+      <label class="file-input-label" for="csvInput">Cargar CSV</label>
+      <label class="file-input-label excel" for="excelInput">Cargar Excel</label>
     </div>
     <input type="file" id="csvInput" accept=".csv">
     <input type="file" id="excelInput" accept=".xlsx,.xls">
@@ -477,9 +477,9 @@
 
   <div class="page-layout" id="pageLayout" style="display:none;">
 
-    <div class="sidebar-handle" id="sidebarHandle" title="Mostrar/ocultar configuración de zonas">⟨</div>
+    <div class="sidebar-handle" id="sidebarHandle" title="Mostrar configuración de zonas">⟩</div>
 
-    <aside class="zonas-sidebar" id="zonasSidebar">
+    <aside class="zonas-sidebar collapsed" id="zonasSidebar">
       <div class="panel-block">
         <h3>Configuración de zonas</h3>
         <div class="zonas-body">
@@ -1732,6 +1732,7 @@
   document.getElementById('csvInput').addEventListener('change', (e)=>{
     const file = e.target.files[0];
     if(file) handleFile(file);
+    e.target.value = '';
   });
 
   function handleExcelFile(file){
@@ -1776,6 +1777,7 @@
   document.getElementById('excelInput').addEventListener('change', (e)=>{
     const file = e.target.files[0];
     if(file) handleExcelFile(file);
+    e.target.value = '';
   });
 
   const uploadCard = document.getElementById('uploadCard');

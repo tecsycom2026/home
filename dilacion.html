@@ -677,6 +677,7 @@ document.getElementById('fileInput').addEventListener('change', e => {
     document.getElementById('emptyState').style.display = 'none';
   };
   reader.readAsText(file, 'UTF-8');
+  e.target.value = '';
 });
 
 document.getElementById('fileInputExcel').addEventListener('change', e => {
@@ -713,6 +714,7 @@ document.getElementById('fileInputExcel').addEventListener('change', e => {
     }
   };
   reader.readAsArrayBuffer(file);
+  e.target.value = '';
 });
 
 // =====================================================

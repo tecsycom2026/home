@@ -249,11 +249,11 @@
     <div class="loader">
       <div id="dropzone">Arrastra tu <strong>BASE_PERUFIBRA.xlsx</strong> aquí<br>o haz clic para elegir el archivo</div>
       <div class="upload-choices">
-        <label class="excel" for="fileInput">Cargar Excel</label>
         <label class="csv" for="fileInputCsv">Cargar CSV</label>
+        <label class="excel" for="fileInput">Cargar Excel</label>
       </div>
-      <input type="file" id="fileInput" accept=".xlsx,.xls">
       <input type="file" id="fileInputCsv" accept=".csv">
+      <input type="file" id="fileInput" accept=".xlsx,.xls">
       <div id="fileMeta">Ningún archivo cargado</div>
     </div>
   </header>
@@ -313,8 +313,8 @@
     e.preventDefault(); dropzone.classList.remove('drag');
     if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
   });
-  fileInput.addEventListener('change', e => { if (e.target.files.length) handleFile(e.target.files[0]); });
-  document.getElementById('fileInputCsv').addEventListener('change', e => { if (e.target.files.length) handleFile(e.target.files[0]); });
+  fileInput.addEventListener('change', e => { if (e.target.files.length) handleFile(e.target.files[0]); e.target.value = ''; });
+  document.getElementById('fileInputCsv').addEventListener('change', e => { if (e.target.files.length) handleFile(e.target.files[0]); e.target.value = ''; });
 
   function handleFile(file){
     fileMeta.textContent = 'Leyendo ' + file.name + '…';

@@ -315,16 +315,16 @@
       </div>
     </div>
     <div>
-      <label class="upload-btn" for="fileInput">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 3v12m0-12l-4 4m4-4l4 4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
-        Cargar Excel
-      </label>
-      <input type="file" id="fileInput" accept=".xlsx,.xls">
       <label class="upload-btn csv" for="fileInputCsv">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 3v12m0-12l-4 4m4-4l4 4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
         Cargar CSV
       </label>
       <input type="file" id="fileInputCsv" accept=".csv">
+      <label class="upload-btn" for="fileInput">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 3v12m0-12l-4 4m4-4l4 4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
+        Cargar Excel
+      </label>
+      <input type="file" id="fileInput" accept=".xlsx,.xls">
       <div class="file-tag" id="fileTag">Ningún archivo cargado</div>
     </div>
   </header>
@@ -445,6 +445,7 @@ function handleFile(e){
     }
   };
   reader.readAsArrayBuffer(file);
+  e.target.value = '';
 }
 
 function processRows(rows){
