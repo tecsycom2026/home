@@ -56,18 +56,9 @@
     background:var(--accent); color:#fff; box-shadow:var(--shadow);
   }
 
-  .loadbar{ margin-left:auto; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
-  .loadbar .lb-btn{
-    font-family:inherit; font-size:13px; font-weight:600; color:#fff;
-    border:none; border-radius:6px; padding:9px 16px; cursor:pointer;
-    transition:background .15s ease; white-space:nowrap;
-  }
-  .loadbar .lb-csv{ background:#0f9d76; }
-  .loadbar .lb-csv:hover{ background:#0b8462; }
-  .loadbar .lb-excel{ background:#0055aa; }
-  .loadbar .lb-excel:hover{ background:#004488; }
-  .loadbar input[type=file]{ display:none; }
-  .loadbar .lb-status{ font-size:12px; color:var(--text-dim); max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .sync-status{ margin-left:auto; font-size:12px; color:var(--text-dim); max-width:520px; }
+  .sync-status.ok{ color:var(--accent); }
+  .sync-status.warn{ color:#b45309; }
 
   .frames{ position:relative; flex:1; min-height:0; }
   .frames iframe{
@@ -83,7 +74,7 @@
     nav.tabbar{ padding:10px 12px; gap:5px; }
     nav.tabbar .brand{ width:100%; margin-right:0; margin-bottom:6px; }
     .tab-btn{ padding:8px 12px; font-size:12.5px; }
-    .loadbar{ margin-left:0; width:100%; margin-top:6px; }
+    .sync-status{ margin-left:0; width:100%; }
   }
 </style>
 </head>
@@ -97,14 +88,7 @@
     <button class="tab-btn" data-target="frame-evolutivo">Evolutivo</button>
     <button class="tab-btn" data-target="frame-efectividad">Reporte de Cierre</button>
     <button class="tab-btn" data-target="frame-adicionales">Reporte por Hora</button>
-
-    <div class="loadbar">
-      <span class="lb-status" id="lbStatus">Carga un archivo para todas las pestañas</span>
-      <button class="lb-btn lb-csv" id="lbCsv" type="button">Cargar CSV</button>
-      <button class="lb-btn lb-excel" id="lbExcel" type="button">Cargar Excel</button>
-      <input type="file" id="lbCsvInput" accept=".csv">
-      <input type="file" id="lbExcelInput" accept=".xlsx,.xls">
-    </div>
+    <div class="sync-status" id="syncStatus"></div>
   </nav>
 
   <div class="frames">
@@ -130,20 +114,40 @@
     });
   });
 
-  // Carga única: el archivo se envía a las 5 pestañas; cada una lo procesa como si lo hubieras cargado en ella
-  function enviarATodas(file){
-    if (!file) return;
-    frames.forEach(f => f.contentWindow.postMessage({ type: 'pf-cargar-archivo', file: file }, '*'));
-    document.getElementById('lbStatus').textContent = file.name + ' → enviado a las ' + frames.length + ' pestañas';
+  // Sincronización: cuando se carga un archivo en cualquier pestaña (CSV o Excel),
+  // se reparte a las demás, que lo leen con su propio botón según el tipo de archivo.
+  const etiquetas = {};
+  buttons.forEach(b => { etiquetas[b.dataset.target] = b.textContent.trim(); });
+  const syncStatus = document.getElementById('syncStatus');
+  let sync = null;
+
+  function frameDe(source){ return [...frames].find(f => f.contentWindow === source); }
+
+  function pintarEstado(){
+    if (!sync) return;
+    const ok = [...sync.recibieron].map(id => etiquetas[id]);
+    const falta = [...sync.esperados].filter(id => !sync.recibieron.has(id)).map(id => etiquetas[id]);
+    let txt = sync.nombre + ' · cargado en ' + etiquetas[sync.origen];
+    if (ok.length) txt += ' y también en: ' + ok.join(', ');
+    if (falta.length && sync.vencido) txt += ' · sin respuesta: ' + falta.join(', ') + ' (revisa que esa web tenga la versión nueva)';
+    syncStatus.textContent = txt;
+    syncStatus.className = 'sync-status ' + (falta.length && sync.vencido ? 'warn' : 'ok');
   }
-  [['lbCsv','lbCsvInput'], ['lbExcel','lbExcelInput']].forEach(([btnId, inputId]) => {
-    const input = document.getElementById(inputId);
-    document.getElementById(btnId).addEventListener('click', () => input.click());
-    input.addEventListener('change', e => {
-      const file = e.target.files[0];
-      enviarATodas(file);
-      e.target.value = '';
-    });
+
+  window.addEventListener('message', e => {
+    const origen = frameDe(e.source);
+    if (!origen || !e.data) return;
+
+    if (e.data.type === 'pf-archivo-cargado' && e.data.file){
+      const otros = [...frames].filter(f => f !== origen);
+      sync = { nombre: e.data.file.name, origen: origen.id, esperados: new Set(otros.map(f => f.id)), recibieron: new Set(), vencido: false };
+      otros.forEach(f => f.contentWindow.postMessage({ type: 'pf-cargar-archivo', file: e.data.file }, '*'));
+      pintarEstado();
+      setTimeout(() => { if (sync) { sync.vencido = true; pintarEstado(); } }, 2500);
+    } else if (e.data.type === 'pf-ack' && sync && sync.esperados.has(origen.id)){
+      sync.recibieron.add(origen.id);
+      pintarEstado();
+    }
   });
 </script>
 

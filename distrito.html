@@ -732,24 +732,51 @@ document.getElementById('districtSearch').addEventListener('input', (e) => {
 });
 </script>
 <script>
-// Panel (index.html): recibe el archivo cargado arriba y lo entrega al input CSV/Excel de esta web
-window.addEventListener('message', function(e){
-  if (e.source !== window.parent || !e.data) return;
-  if (e.data.type === 'pf-cargar-archivo' && e.data.file){
-    var f = e.data.file;
-    var input = document.getElementById(/\.csv$/i.test(f.name) ? 'fileInputCsv' : 'fileInput');
-    if (!input) return;
-    try{
-      var dt = new DataTransfer(); dt.items.add(f);
-      input.files = dt.files;
-      input.dispatchEvent(new Event('change', {bubbles:true}));
-    }catch(err){ console.error('No se pudo cargar el archivo desde el panel:', err); }
-  } else if (e.data.type === 'pf-mostrar'){
-    // al volver a mostrar la pestaña, los gráficos se reajustan al tamaño real
-    try{ if (typeof chartInstance !== 'undefined' && chartInstance) chartInstance.resize(); }catch(err){}
-    window.dispatchEvent(new Event('resize'));
+// Panel (index.html): sincroniza la carga entre pestañas.
+// - Lo que se cargue aquí (botón o arrastrando) se avisa al panel para repartirlo a las demás webs.
+// - Lo que llegue desde otra web se entrega a mi propio input CSV/Excel, como si se hubiera cargado aquí.
+(function(){
+  var CSV_ID = 'fileInputCsv', XLS_ID = 'fileInput';
+  var recibiendo = false;
+  function esArchivoValido(f){ return f && /\.(csv|xlsx|xls)$/i.test(f.name); }
+  function avisarAlPanel(f){
+    if (recibiendo || !esArchivoValido(f) || window.parent === window) return;
+    try{ window.parent.postMessage({ type: 'pf-archivo-cargado', file: f }, '*'); }catch(err){}
   }
-});
+  // Carga hecha en esta web con cualquiera de sus botones
+  document.addEventListener('change', function(e){
+    var t = e.target;
+    if (t && (t.id === CSV_ID || t.id === XLS_ID) && t.files && t.files[0]) avisarAlPanel(t.files[0]);
+  }, true);
+  // Carga hecha arrastrando el archivo
+  document.addEventListener('drop', function(e){
+    var fs = e.dataTransfer && e.dataTransfer.files;
+    if (fs && fs[0]) avisarAlPanel(fs[0]);
+  }, true);
+
+  window.addEventListener('message', function(e){
+    if (e.source !== window.parent || !e.data) return;
+    if (e.data.type === 'pf-cargar-archivo' && e.data.file){
+      var f = e.data.file;
+      var input = document.getElementById(/\.csv$/i.test(f.name) ? CSV_ID : XLS_ID);
+      if (!input) return;
+      recibiendo = true;
+      try{
+        Object.defineProperty(input, 'files', { value: [f], configurable: true });
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+        window.parent.postMessage({ type: 'pf-ack' }, '*');
+      }catch(err){
+        console.error('No se pudo cargar el archivo desde el panel:', err);
+      }finally{
+        delete input.files;
+        recibiendo = false;
+      }
+    } else if (e.data.type === 'pf-mostrar'){
+      try{ if (typeof chartInstance !== 'undefined' && chartInstance) chartInstance.resize(); }catch(err){}
+      window.dispatchEvent(new Event('resize'));
+    }
+  });
+})();
 </script>
 
 </body>
