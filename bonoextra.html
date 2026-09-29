@@ -157,7 +157,7 @@
   <div class="empty" id="empty">
     <strong>Aún no hay datos cargados</strong>
     Pega tu token de Airtable en la sección de arriba para ver los datos.<br>
-    Columnas esperadas en Airtable: TICKET, FECHA, CODIGO, CUENTI, DNI, DIRECCION, TECNICO, OBSERVACIONES.
+    Columnas esperadas en Airtable: TICKET, FECHA, CODIGO, CLIENTE, DNI, DIRECCION, TECNICO, OBSERVACIONES.
   </div>
 </main>
 
@@ -177,7 +177,7 @@
     {key:'ticket',        label:'TICKET',        alias:['TICKET','NTICKET']},
     {key:'fecha',         label:'FECHA',         alias:['FECHA']},
     {key:'codigo',        label:'CODIGO',        alias:['CODIGO']},
-    {key:'cuenti',        label:'CUENTI',        alias:['CUENTI','CUENTA']},
+    {key:'cuenti',        label:'CLIENTE',       alias:['CLIENTE','CUENTI','CUENTA']},
     {key:'dni',           label:'DNI',           alias:['DNI']},
     {key:'direccion',     label:'DIRECCION',     alias:['DIRECCION']},
     {key:'tecnico',       label:'TECNICO',       alias:['TECNICO','CUADRILLA']},
@@ -235,7 +235,9 @@
   // ---------- Construcción de registros desde filas {encabezado: valor} ----------
   function construir(filas){
     if (!filas.length) return { regs: [], faltan: CAMPOS.map(function(c){ return c.label; }) };
-    var enc = Object.keys(filas[0]);
+    // Airtable no envía los campos vacíos: los encabezados se reúnen de TODOS los registros, no solo del primero
+    var vistos = {}, enc = [];
+    filas.forEach(function(f){ Object.keys(f).forEach(function(k){ if (!vistos[k]){ vistos[k] = 1; enc.push(k); } }); });
     var mapa = {};
     CAMPOS.forEach(function(c){
       var h = enc.find(function(e){ return c.alias.indexOf(norm(e)) !== -1; });
@@ -253,7 +255,7 @@
       o._q = sinTildes([o.ticket, o.fecha, o.codigo, o.cuenti, o.dni, o.direccion, o.tecnico, o.observaciones].join(' | '));
       return o;
     }).filter(function(o){ return o.ticket || o.codigo || o.dni || o.tecnico || o.cuenti; });
-    return { regs: regs, faltan: faltan };
+    return { regs: regs, faltan: faltan, recibidas: enc };
   }
 
   // ---------- Avisos ----------
@@ -272,7 +274,7 @@
       return;
     }
     registros = res.regs;
-    if (res.faltan.length) aviso('No se encontró la columna: ' + res.faltan.join(', ') + '. Se muestra vacía.', 'warn');
+    if (res.faltan.length) aviso('Airtable no envió datos para: ' + res.faltan.join(', ') + ' (o la columna está vacía en todos los registros, o tiene otro nombre). Columnas recibidas: ' + res.recibidas.join(', ') + '.', 'warn');
     else aviso('');
     $('fuente').textContent = fuenteTxt + ' — ' + registros.length + ' registros';
     $('fuente').title = $('fuente').textContent;
