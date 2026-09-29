@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bono Extra · Peru Fibra</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --bg:#f4f6fa; --panel:#fff; --panel-2:#eef0f4; --line:#dce0e6;
+    --text:#1a202c; --dim:#5a6a7e; --accent:#0f9d76; --accent-soft:#e3f5ef;
+    --blue:#0055aa; --amber:#b45309; --red:#c0392b;
+    --shadow:0 1px 3px rgba(0,0,0,.06);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;background:var(--bg);color:var(--text);
+    font-family:'Space Grotesk',system-ui,sans-serif;-webkit-font-smoothing:antialiased;}
+  .mono{font-family:'JetBrains Mono',ui-monospace,monospace;}
+  header{display:flex;flex-wrap:wrap;align-items:center;gap:12px;justify-content:space-between;
+    background:var(--panel);border-bottom:1px solid var(--line);padding:14px 22px;box-shadow:var(--shadow);}
+  header h1{margin:0;font-size:20px;}
+  header .sub{font-size:12.5px;color:var(--dim);margin-top:2px;}
+  .actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px;}
+  .btn{font-family:inherit;font-size:13px;font-weight:600;color:#fff;border:none;border-radius:6px;
+    padding:9px 16px;cursor:pointer;transition:background .15s ease;text-decoration:none;display:inline-block;white-space:nowrap;}
+  .btn.dark{background:#334155;} .btn.dark:hover{background:#1e293b;}
+  .btn.ghost{background:var(--panel-2);color:var(--text);} .btn.ghost:hover{background:#e0e4ea;}
+  .btn[disabled]{opacity:.45;cursor:not-allowed;}
+  .fuente{font-size:12px;color:var(--dim);max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+
+  main{padding:18px 22px 40px;max-width:1500px;margin:0 auto;}
+  .notice{border-radius:8px;padding:10px 14px;font-size:13px;margin-bottom:14px;display:none;}
+  .notice.show{display:block;}
+  .notice.err{background:#fdecea;color:#8a1c12;border:1px solid #f4c2bc;}
+  .notice.warn{background:#fff4e0;color:#8a5200;border:1px solid #f1d29b;}
+
+  details.cfg{background:var(--panel);border:1px solid var(--line);border-radius:10px;margin-bottom:16px;box-shadow:var(--shadow);}
+  details.cfg summary{cursor:pointer;padding:12px 16px;font-weight:600;font-size:13.5px;}
+  .cfg-body{padding:0 16px 16px;font-size:13px;color:var(--dim);}
+  .cfg-body p{margin:0 0 10px;line-height:1.5;}
+  .cfg-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px;}
+  .cfg-row input[type=password],.cfg-row input[type=text]{flex:1;min-width:260px;font-family:'JetBrains Mono',monospace;font-size:12.5px;
+    padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--text);}
+  .cfg-row label{display:flex;align-items:center;gap:6px;color:var(--text);font-size:13px;}
+
+  .filters{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;background:var(--panel);border:1px solid var(--line);
+    border-radius:10px;padding:14px 16px;margin-bottom:16px;box-shadow:var(--shadow);}
+  .f{display:flex;flex-direction:column;gap:4px;}
+  .f label{font-size:11.5px;font-weight:600;color:var(--dim);text-transform:uppercase;letter-spacing:.04em;}
+  .f input,.f select{font-family:inherit;font-size:13.5px;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--text);min-width:150px;}
+  .f.grow{flex:1;min-width:240px;} .f.grow input{width:100%;}
+
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:16px;}
+  .kpi{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 16px;box-shadow:var(--shadow);}
+  .kpi .n{font-size:26px;font-weight:700;color:var(--accent);line-height:1.1;}
+  .kpi .l{font-size:12px;color:var(--dim);margin-top:4px;}
+
+  .cols{display:grid;grid-template-columns:270px 1fr;gap:16px;align-items:start;}
+  @media (max-width:900px){.cols{grid-template-columns:1fr;}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);overflow:hidden;}
+  .card h2{margin:0;font-size:13.5px;padding:12px 14px;border-bottom:1px solid var(--line);background:var(--panel-2);}
+  .tec-list{max-height:520px;overflow:auto;}
+  .tec{display:flex;justify-content:space-between;gap:8px;padding:8px 14px;border-bottom:1px solid #f0f1f3;font-size:13px;cursor:pointer;}
+  .tec:hover{background:var(--accent-soft);}
+  .tec.sel{background:var(--accent);color:#fff;}
+  .tec .c{font-family:'JetBrains Mono',monospace;font-weight:600;}
+
+  .tbl-wrap{overflow:auto;max-height:640px;}
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  thead th{position:sticky;top:0;background:#f7f8fa;text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);
+    font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--dim);cursor:pointer;white-space:nowrap;user-select:none;}
+  thead th:hover{color:var(--text);}
+  thead th .ar{color:var(--accent);margin-left:4px;}
+  tbody td{padding:9px 12px;border-bottom:1px solid #f0f1f3;vertical-align:top;}
+  tbody tr:hover{background:#fafbfc;}
+  td.nowrap{white-space:nowrap;}
+  td.obs{min-width:240px;max-width:420px;}
+  .more{text-align:center;padding:12px;}
+  .empty{text-align:center;padding:60px 20px;color:var(--dim);}
+  .empty strong{display:block;font-size:17px;color:var(--text);margin-bottom:8px;}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Bono Extra</h1>
+    <div class="sub">Peru Fibra · seguimiento de bonos extra por ticket</div>
+  </div>
+  <div class="actions">
+    <span class="fuente" id="fuente">Ningún dato cargado</span>
+    <button class="btn dark" id="btnAirtable" type="button">Actualizar desde Airtable</button>
+    <button class="btn ghost" id="btnExport" type="button" disabled>Exportar a Excel</button>
+  </div>
+</header>
+
+<main>
+  <div class="notice" id="notice"></div>
+
+  <details class="cfg" id="cfg">
+    <summary>Conexión con Airtable</summary>
+    <div class="cfg-body">
+      <p><b>Cómo obtener el token:</b> entra a Airtable con una cuenta que tenga acceso a esta base → <span class="mono">airtable.com/create/tokens</span> → <b>Create new token</b> →
+        ponle un nombre (ej. "Bono Extra") → en <b>Scopes</b> agrega <span class="mono">data.records:read</span> → en <b>Access</b> agrega solo la base de Bono Extra →
+        <b>Create token</b> y copia el token (Airtable lo muestra una sola vez). Pégalo aquí abajo. Se guarda únicamente en este navegador y solo permite leer.</p>
+      <div class="cfg-row">
+        <input type="password" id="token" placeholder="Token personal de Airtable (pat…)" autocomplete="off">
+        <button class="btn dark" id="btnGuardarToken" type="button">Guardar y cargar</button>
+        <button class="btn ghost" id="btnBorrarToken" type="button">Borrar token</button>
+      </div>
+      <div class="cfg-row">
+        <label><input type="checkbox" id="chkAuto"> Actualizar automáticamente cada 2 minutos</label>
+        <a class="btn ghost" id="lnkAirtable" href="#" target="_blank" rel="noopener">Abrir vista en Airtable</a>
+      </div>
+      <div class="cfg-row mono" style="font-size:11.5px;">Base: <span id="cBase"></span> · Tabla: <span id="cTabla"></span> · Vista: <span id="cVista"></span></div>
+    </div>
+  </details>
+
+  <div id="app" style="display:none;">
+    <div class="filters">
+      <div class="f grow"><label for="fBuscar">Buscar (ticket, código, DNI, dirección, observaciones…)</label>
+        <input type="text" id="fBuscar" placeholder="Escribe para filtrar"></div>
+      <div class="f"><label for="fTecnico">Técnico</label><select id="fTecnico"><option value="">Todos</option></select></div>
+      <div class="f"><label for="fDesde">Fecha desde</label><input type="date" id="fDesde"></div>
+      <div class="f"><label for="fHasta">Fecha hasta</label><input type="date" id="fHasta"></div>
+      <div class="f"><label for="fObs">Observaciones</label>
+        <select id="fObs"><option value="">Todas</option><option value="con">Con observaciones</option><option value="sin">Sin observaciones</option></select></div>
+      <button class="btn ghost" id="btnLimpiar" type="button">Limpiar filtros</button>
+    </div>
+
+    <div class="kpis">
+      <div class="kpi"><div class="n" id="kTotal">0</div><div class="l" id="kTotalL">Registros</div></div>
+      <div class="kpi"><div class="n" id="kTec">0</div><div class="l">Técnicos distintos</div></div>
+      <div class="kpi"><div class="n" id="kObs">0</div><div class="l">Con observaciones</div></div>
+      <div class="kpi"><div class="n mono" id="kRango" style="font-size:16px;line-height:1.5;">—</div><div class="l">Rango de fechas</div></div>
+    </div>
+
+    <div class="cols">
+      <div class="card">
+        <h2>Por técnico <span style="font-weight:500;color:var(--dim);">(clic para filtrar)</span></h2>
+        <div class="tec-list" id="tecList"></div>
+      </div>
+      <div class="card">
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr id="thead"></tr></thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+        <div class="more" id="more" style="display:none;"><button class="btn ghost" id="btnMas" type="button">Mostrar más</button></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="empty" id="empty">
+    <strong>Aún no hay datos cargados</strong>
+    Pega tu token de Airtable en la sección de arriba para ver los datos.<br>
+    Columnas esperadas en Airtable: TICKET, FECHA, CODIGO, CUENTI, DNI, DIRECCION, TECNICO, OBSERVACIONES.
+  </div>
+</main>
+
+<script>
+(function(){
+  // ---------- Configuración de la fuente Airtable (tomada del link compartido) ----------
+  var AT = {
+    base: 'appsJ5aPe0vTRGJLc',
+    table: 'tblKMKYW3U3WiTkBb',
+    view: 'viwt27HmMJPFR2iIe',
+    shared: 'https://airtable.com/appsJ5aPe0vTRGJLc/shrXHWOVUx60c8yLA/tblKMKYW3U3WiTkBb/viwt27HmMJPFR2iIe'
+  };
+  var LS_TOKEN = 'bonoextra_airtable_token';
+  var AUTO_MS = 120000;
+
+  var CAMPOS = [
+    {key:'ticket',        label:'TICKET',        alias:['TICKET','NTICKET']},
+    {key:'fecha',         label:'FECHA',         alias:['FECHA']},
+    {key:'codigo',        label:'CODIGO',        alias:['CODIGO']},
+    {key:'cuenti',        label:'CUENTI',        alias:['CUENTI','CUENTA']},
+    {key:'dni',           label:'DNI',           alias:['DNI']},
+    {key:'direccion',     label:'DIRECCION',     alias:['DIRECCION']},
+    {key:'tecnico',       label:'TECNICO',       alias:['TECNICO','CUADRILLA']},
+    {key:'observaciones', label:'OBSERVACIONES', alias:['OBSERVACIONES','OBSERVACION']}
+  ];
+
+  var $ = function(id){ return document.getElementById(id); };
+  var registros = [];
+  var filtrados = [];
+  var sortState = { key:'fecha', dir:-1 };
+  var mostrar = 100;
+  var timerAuto = null;
+
+  // ---------- Utilidades ----------
+  function norm(s){ return String(s == null ? '' : s).normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Za-z0-9]/g,'').toUpperCase(); }
+  function sinTildes(s){ return String(s).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase(); }
+  function esc(s){ return String(s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+  function pad(n){ return (n < 10 ? '0' : '') + n; }
+  function ymd(d){ return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate()); }
+  function dmy(d){ return pad(d.getDate()) + '/' + pad(d.getMonth()+1) + '/' + d.getFullYear(); }
+
+  function esFecha(v){ return Object.prototype.toString.call(v) === '[object Date]'; }
+
+  function aTexto(v){
+    if (v == null) return '';
+    if (esFecha(v)) return isNaN(v) ? '' : dmy(v);
+    if (Array.isArray(v)) return v.map(aTexto).filter(Boolean).join(', ');
+    if (typeof v === 'object') return String(v.name || v.email || v.text || v.url || v.value || '').trim();
+    return String(v).trim();
+  }
+
+  // Devuelve { ts, txt }: ts = medianoche local (ms) para filtrar/ordenar, txt = lo que se muestra
+  function parseFecha(v){
+    if (v == null || v === '') return { ts: null, txt: '' };
+    var d = null, conHora = false;
+    if (esFecha(v)){ d = v; }
+    else if (typeof v === 'number' && v > 20000 && v < 80000){ d = new Date(Math.round((v - 25569) * 86400 * 1000)); d = new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()); }
+    else {
+      var s = String(v).trim(), m;
+      if ((m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/))) d = new Date(+m[1], +m[2]-1, +m[3]);
+      else if ((m = s.match(/^(\d{4})-(\d{2})-(\d{2})[T ]/))) { d = new Date(s); conHora = true; }
+      else if ((m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})(?:[ T](\d{1,2}):(\d{2}))?/))){
+        var y = +m[3]; if (y < 100) y += 2000;
+        d = new Date(y, +m[2]-1, +m[1], m[4] ? +m[4] : 0, m[5] ? +m[5] : 0);
+        conHora = !!m[4];
+      }
+      if (!d || isNaN(d)) return { ts: null, txt: s };
+    }
+    if (isNaN(d)) return { ts: null, txt: '' };
+    var dia = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    var txt = dmy(dia) + (conHora ? ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) : '');
+    return { ts: dia.getTime(), txt: txt };
+  }
+
+  // ---------- Construcción de registros desde filas {encabezado: valor} ----------
+  function construir(filas){
+    if (!filas.length) return { regs: [], faltan: CAMPOS.map(function(c){ return c.label; }) };
+    var enc = Object.keys(filas[0]);
+    var mapa = {};
+    CAMPOS.forEach(function(c){
+      var h = enc.find(function(e){ return c.alias.indexOf(norm(e)) !== -1; });
+      if (h !== undefined) mapa[c.key] = h;
+    });
+    var faltan = CAMPOS.filter(function(c){ return !(c.key in mapa); }).map(function(c){ return c.label; });
+    var regs = filas.map(function(f){
+      var r = {};
+      CAMPOS.forEach(function(c){ r[c.key] = c.key in mapa ? f[mapa[c.key]] : ''; });
+      var fe = parseFecha(r.fecha);
+      var o = {
+        ticket: aTexto(r.ticket), fecha: fe.txt, ts: fe.ts, codigo: aTexto(r.codigo), cuenti: aTexto(r.cuenti),
+        dni: aTexto(r.dni), direccion: aTexto(r.direccion), tecnico: aTexto(r.tecnico), observaciones: aTexto(r.observaciones)
+      };
+      o._q = sinTildes([o.ticket, o.fecha, o.codigo, o.cuenti, o.dni, o.direccion, o.tecnico, o.observaciones].join(' | '));
+      return o;
+    }).filter(function(o){ return o.ticket || o.codigo || o.dni || o.tecnico || o.cuenti; });
+    return { regs: regs, faltan: faltan };
+  }
+
+  // ---------- Avisos ----------
+  function aviso(texto, tipo){
+    var n = $('notice');
+    if (!texto){ n.className = 'notice'; n.textContent = ''; return; }
+    n.className = 'notice show ' + (tipo || 'err');
+    n.textContent = texto;
+  }
+
+  // ---------- Aplicar datos nuevos (siempre reemplaza los anteriores) ----------
+  function aplicar(filas, fuenteTxt){
+    var res = construir(filas);
+    if (!res.regs.length){
+      aviso('No se encontraron registros. Verifica que el archivo tenga los encabezados: ' + CAMPOS.map(function(c){ return c.label; }).join(', ') + '.', 'err');
+      return;
+    }
+    registros = res.regs;
+    if (res.faltan.length) aviso('No se encontró la columna: ' + res.faltan.join(', ') + '. Se muestra vacía.', 'warn');
+    else aviso('');
+    $('fuente').textContent = fuenteTxt + ' — ' + registros.length + ' registros';
+    $('fuente').title = $('fuente').textContent;
+    $('empty').style.display = 'none';
+    $('app').style.display = 'block';
+    $('btnExport').disabled = false;
+    llenarTecnicos();
+    mostrar = 100;
+    render();
+  }
+
+  function llenarTecnicos(){
+    var sel = $('fTecnico'), actual = sel.value;
+    var tecs = Array.from(new Set(registros.map(function(r){ return r.tecnico; }).filter(Boolean))).sort(function(a,b){ return a.localeCompare(b, 'es'); });
+    sel.innerHTML = '<option value="">Todos</option>' + tecs.map(function(t){ return '<option value="' + esc(t) + '">' + esc(t) + '</option>'; }).join('');
+    sel.value = tecs.indexOf(actual) !== -1 ? actual : '';
+  }
+
+  // ---------- Filtros y render ----------
+  function filtrar(){
+    var q = sinTildes($('fBuscar').value.trim());
+    var tec = $('fTecnico').value;
+    var d = $('fDesde').value, h = $('fHasta').value;
+    var dTs = d ? new Date(d + 'T00:00:00').getTime() : null;
+    var hTs = h ? new Date(h + 'T00:00:00').getTime() : null;
+    var obs = $('fObs').value;
+    return registros.filter(function(r){
+      if (q && r._q.indexOf(q) === -1) return false;
+      if (tec && r.tecnico !== tec) return false;
+      if (dTs !== null && (r.ts === null || r.ts < dTs)) return false;
+      if (hTs !== null && (r.ts === null || r.ts > hTs)) return false;
+      if (obs === 'con' && !r.observaciones) return false;
+      if (obs === 'sin' && r.observaciones) return false;
+      return true;
+    });
+  }
+
+  function cmp(a, b){
+    var k = sortState.key, dir = sortState.dir, va, vb;
+    if (k === 'fecha'){ va = a.ts === null ? -Infinity : a.ts; vb = b.ts === null ? -Infinity : b.ts; return (va - vb) * dir || 0; }
+    return String(a[k]).localeCompare(String(b[k]), 'es', { numeric: true }) * dir;
+  }
+
+  function render(){
+    filtrados = filtrar().sort(cmp);
+
+    // KPIs
+    $('kTotal').textContent = filtrados.length;
+    $('kTotalL').textContent = filtrados.length === registros.length ? 'Registros' : 'Registros (de ' + registros.length + ')';
+    $('kTec').textContent = new Set(filtrados.map(function(r){ return r.tecnico; }).filter(Boolean)).size;
+    $('kObs').textContent = filtrados.filter(function(r){ return r.observaciones; }).length;
+    var tss = filtrados.map(function(r){ return r.ts; }).filter(function(t){ return t !== null; });
+    $('kRango').textContent = tss.length ? dmy(new Date(Math.min.apply(null, tss))) + ' → ' + dmy(new Date(Math.max.apply(null, tss))) : '—';
+
+    // Resumen por técnico (sobre todos los filtros excepto el propio técnico)
+    var tecSel = $('fTecnico').value;
+    var base = registros;
+    var q = sinTildes($('fBuscar').value.trim()), d = $('fDesde').value, h = $('fHasta').value, obs = $('fObs').value;
+    var dTs = d ? new Date(d + 'T00:00:00').getTime() : null, hTs = h ? new Date(h + 'T00:00:00').getTime() : null;
+    base = base.filter(function(r){
+      if (q && r._q.indexOf(q) === -1) return false;
+      if (dTs !== null && (r.ts === null || r.ts < dTs)) return false;
+      if (hTs !== null && (r.ts === null || r.ts > hTs)) return false;
+      if (obs === 'con' && !r.observaciones) return false;
+      if (obs === 'sin' && r.observaciones) return false;
+      return true;
+    });
+    var cont = {};
+    base.forEach(function(r){ var t = r.tecnico || '(sin técnico)'; cont[t] = (cont[t] || 0) + 1; });
+    var lista = Object.keys(cont).sort(function(a,b){ return cont[b] - cont[a] || a.localeCompare(b, 'es'); });
+    $('tecList').innerHTML = lista.map(function(t){
+      var valor = t === '(sin técnico)' ? '' : t;
+      return '<div class="tec' + (tecSel && tecSel === valor ? ' sel' : '') + '" data-t="' + esc(valor) + '"><span>' + esc(t) + '</span><span class="c">' + cont[t] + '</span></div>';
+    }).join('') || '<div class="tec">Sin datos</div>';
+
+    // Cabecera
+    $('thead').innerHTML = CAMPOS.map(function(c){
+      var ar = sortState.key === c.key ? '<span class="ar">' + (sortState.dir === 1 ? '▲' : '▼') + '</span>' : '';
+      return '<th data-k="' + c.key + '">' + c.label + ar + '</th>';
+    }).join('');
+
+    // Filas
+    var vis = filtrados.slice(0, mostrar);
+    $('tbody').innerHTML = vis.map(function(r){
+      return '<tr>' +
+        '<td class="nowrap mono">' + esc(r.ticket) + '</td>' +
+        '<td class="nowrap">' + esc(r.fecha) + '</td>' +
+        '<td class="nowrap mono">' + esc(r.codigo) + '</td>' +
+        '<td>' + esc(r.cuenti) + '</td>' +
+        '<td class="nowrap mono">' + esc(r.dni) + '</td>' +
+        '<td>' + esc(r.direccion) + '</td>' +
+        '<td class="nowrap">' + esc(r.tecnico) + '</td>' +
+        '<td class="obs">' + esc(r.observaciones) + '</td></tr>';
+    }).join('') || '<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--dim);">Ningún registro coincide con los filtros</td></tr>';
+    $('more').style.display = filtrados.length > mostrar ? 'block' : 'none';
+    $('btnMas').textContent = 'Mostrar más (' + (filtrados.length - mostrar) + ' restantes)';
+  }
+
+  // ---------- Eventos de filtros / tabla ----------
+  ['fBuscar','fDesde','fHasta'].forEach(function(id){ $(id).addEventListener('input', function(){ mostrar = 100; render(); }); });
+  ['fTecnico','fObs'].forEach(function(id){ $(id).addEventListener('change', function(){ mostrar = 100; render(); }); });
+  $('btnLimpiar').addEventListener('click', function(){
+    $('fBuscar').value = ''; $('fTecnico').value = ''; $('fDesde').value = ''; $('fHasta').value = ''; $('fObs').value = '';
+    mostrar = 100; render();
+  });
+  $('btnMas').addEventListener('click', function(){ mostrar += 200; render(); });
+  $('thead').addEventListener('click', function(e){
+    var th = e.target.closest('th'); if (!th) return;
+    var k = th.dataset.k;
+    sortState = { key: k, dir: sortState.key === k ? -sortState.dir : (k === 'fecha' ? -1 : 1) };
+    render();
+  });
+  $('tecList').addEventListener('click', function(e){
+    var el = e.target.closest('.tec'); if (!el || el.dataset.t === undefined) return;
+    var t = el.dataset.t;
+    $('fTecnico').value = ($('fTecnico').value === t) ? '' : t;
+    if (t === '') $('fTecnico').value = '';
+    mostrar = 100; render();
+  });
+
+  // ---------- Exportar ----------
+  $('btnExport').addEventListener('click', function(){
+    if (typeof XLSX === 'undefined'){ aviso('No se pudo cargar la librería de Excel (XLSX). Revisa tu conexión y recarga la página.', 'err'); return; }
+    var datos = filtrados.map(function(r){
+      var o = {}; CAMPOS.forEach(function(c){ o[c.label] = r[c.key]; }); return o;
+    });
+    var ws = XLSX.utils.json_to_sheet(datos, { header: CAMPOS.map(function(c){ return c.label; }) });
+    var wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'BONO_EXTRA');
+    XLSX.writeFile(wb, 'BonoExtra_' + ymd(new Date()) + '.xlsx');
+  });
+
+  // ---------- Airtable (API) ----------
+  function getToken(){ try{ return localStorage.getItem(LS_TOKEN) || ''; }catch(err){ return ''; } }
+  function setToken(t){ try{ if (t) localStorage.setItem(LS_TOKEN, t); else localStorage.removeItem(LS_TOKEN); }catch(err){} }
+
+  async function cargarAirtable(silencioso){
+    var token = ($('token').value.trim()) || getToken();
+    if (!token){ $('cfg').open = true; aviso('Pega tu token de Airtable para cargar los datos.', 'warn'); return; }
+    var btn = $('btnAirtable');
+    btn.disabled = true; var txt0 = btn.textContent; if (!silencioso) btn.textContent = 'Leyendo Airtable…';
+    try{
+      var todos = [], offset = '';
+      do{
+        var url = 'https://api.airtable.com/v0/' + AT.base + '/' + AT.table + '?view=' + encodeURIComponent(AT.view) + '&pageSize=100' + (offset ? '&offset=' + encodeURIComponent(offset) : '');
+        var resp = await fetch(url, { headers: { 'Authorization': 'Bearer ' + token } });
+        if (!resp.ok){
+          var msg = resp.status === 401 ? 'Token inválido o vencido.'
+                  : resp.status === 403 ? 'El token no tiene permiso para esta base (activa data.records:read y agrega la base al token).'
+                  : resp.status === 404 ? 'No se encontró la tabla o la vista en Airtable.'
+                  : resp.status === 429 ? 'Airtable pidió esperar un momento (demasiadas consultas). Intenta de nuevo en unos segundos.'
+                  : 'Airtable respondió con error ' + resp.status + '.';
+          throw new Error(msg);
+        }
+        var json = await resp.json();
+        (json.records || []).forEach(function(r){ todos.push(r.fields || {}); });
+        offset = json.offset || '';
+        if (!silencioso) btn.textContent = 'Leyendo… ' + todos.length;
+      }while(offset);
+      var hora = pad(new Date().getHours()) + ':' + pad(new Date().getMinutes());
+      aplicar(todos, 'Airtable · actualizado ' + hora);
+      setToken(token); $('token').value = '';
+    }catch(err){
+      var mensaje = (err instanceof TypeError) ? 'No se pudo conectar con Airtable. Revisa tu conexión a internet.' : err.message;
+      aviso(mensaje, 'err');
+      if (/token|permiso/i.test(mensaje)) $('cfg').open = true;
+    }finally{
+      btn.disabled = false; btn.textContent = txt0;
+    }
+  }
+  $('btnAirtable').addEventListener('click', function(){ cargarAirtable(false); });
+  $('btnGuardarToken').addEventListener('click', function(){ cargarAirtable(false); });
+  $('btnBorrarToken').addEventListener('click', function(){
+    setToken(''); $('token').value = ''; $('chkAuto').checked = false; programarAuto();
+    aviso('Token borrado de este navegador.', 'warn');
+  });
+  function programarAuto(){
+    if (timerAuto){ clearInterval(timerAuto); timerAuto = null; }
+    try{ localStorage.setItem('bonoextra_auto', $('chkAuto').checked ? '1' : '0'); }catch(err){}
+    if ($('chkAuto').checked) timerAuto = setInterval(function(){ if (getToken()) cargarAirtable(true); }, AUTO_MS);
+  }
+  $('chkAuto').addEventListener('change', programarAuto);
+
+  // ---------- Inicio ----------
+  $('cBase').textContent = AT.base; $('cTabla').textContent = AT.table; $('cVista').textContent = AT.view;
+  $('lnkAirtable').href = AT.shared;
+  try{ $('chkAuto').checked = localStorage.getItem('bonoextra_auto') === '1'; }catch(err){}
+  if (getToken()){ cargarAirtable(false); programarAuto(); }
+  else { $('cfg').open = true; }
+})();
+</script>
+</body>
+</html>
