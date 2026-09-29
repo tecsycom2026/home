@@ -100,12 +100,12 @@
   <div class="notice" id="notice"></div>
 
   <details class="cfg" id="cfg">
-    <summary>Conexión con Airtable</summary>
+    <summary id="cfgTitulo">Conexión con Airtable</summary>
     <div class="cfg-body">
-      <p><b>Cómo obtener el token:</b> entra a Airtable con una cuenta que tenga acceso a esta base → <span class="mono">airtable.com/create/tokens</span> → <b>Create new token</b> →
+      <p id="tokenHelp"><b>Cómo obtener el token:</b> entra a Airtable con una cuenta que tenga acceso a esta base → <span class="mono">airtable.com/create/tokens</span> → <b>Create new token</b> →
         ponle un nombre (ej. "Bono Extra") → en <b>Scopes</b> agrega <span class="mono">data.records:read</span> → en <b>Access</b> agrega solo la base de Bono Extra →
         <b>Create token</b> y copia el token (Airtable lo muestra una sola vez). Pégalo aquí abajo. Se guarda únicamente en este navegador y solo permite leer.</p>
-      <div class="cfg-row">
+      <div class="cfg-row" id="tokenRow">
         <input type="password" id="token" placeholder="Token personal de Airtable (pat…)" autocomplete="off">
         <button class="btn dark" id="btnGuardarToken" type="button">Guardar y cargar</button>
         <button class="btn ghost" id="btnBorrarToken" type="button">Borrar token</button>
@@ -114,7 +114,7 @@
         <label><input type="checkbox" id="chkAuto"> Actualizar automáticamente cada 2 minutos</label>
         <a class="btn ghost" id="lnkAirtable" href="#" target="_blank" rel="noopener">Abrir vista en Airtable</a>
       </div>
-      <div class="cfg-row mono" style="font-size:11.5px;">Base: <span id="cBase"></span> · Tabla: <span id="cTabla"></span> · Vista: <span id="cVista"></span></div>
+      <div class="cfg-row mono" id="cBaseRow" style="font-size:11.5px;">Base: <span id="cBase"></span> · Tabla: <span id="cTabla"></span> · Vista: <span id="cVista"></span></div>
     </div>
   </details>
 
@@ -170,6 +170,9 @@
     view: 'viwt27HmMJPFR2iIe',
     shared: 'https://airtable.com/appsJ5aPe0vTRGJLc/shrXHWOVUx60c8yLA/tblKMKYW3U3WiTkBb/viwt27HmMJPFR2iIe'
   };
+  // Token de solo lectura integrado (data.records:read). Quien tenga este archivo puede leer esa base.
+  // Si se deja vacío (''), la web pide pegar el token manualmente.
+  var TOKEN_FIJO = 'patw1pPnLC97IAzJd.88bc8608e2105a011d1c4563adda5dd0b95ceae5a0ca1fc9e2b3b52253e6c985';
   var LS_TOKEN = 'bonoextra_airtable_token';
   var AUTO_MS = 120000;
 
@@ -408,11 +411,11 @@
   });
 
   // ---------- Airtable (API) ----------
-  function getToken(){ try{ return localStorage.getItem(LS_TOKEN) || ''; }catch(err){ return ''; } }
-  function setToken(t){ try{ if (t) localStorage.setItem(LS_TOKEN, t); else localStorage.removeItem(LS_TOKEN); }catch(err){} }
+  function getToken(){ if (TOKEN_FIJO) return TOKEN_FIJO; try{ return localStorage.getItem(LS_TOKEN) || ''; }catch(err){ return ''; } }
+  function setToken(t){ if (TOKEN_FIJO) return; try{ if (t) localStorage.setItem(LS_TOKEN, t); else localStorage.removeItem(LS_TOKEN); }catch(err){} }
 
   async function cargarAirtable(silencioso){
-    var token = ($('token').value.trim()) || getToken();
+    var token = TOKEN_FIJO || ($('token').value.trim()) || getToken();
     if (!token){ $('cfg').open = true; aviso('Pega tu token de Airtable para cargar los datos.', 'warn'); return; }
     var btn = $('btnAirtable');
     btn.disabled = true; var txt0 = btn.textContent; if (!silencioso) btn.textContent = 'Leyendo Airtable…';
@@ -439,8 +442,9 @@
       setToken(token); $('token').value = '';
     }catch(err){
       var mensaje = (err instanceof TypeError) ? 'No se pudo conectar con Airtable. Revisa tu conexión a internet.' : err.message;
+      if (TOKEN_FIJO && /token|permiso/i.test(mensaje)) mensaje += ' Avisa al administrador de la web para renovar el acceso.';
       aviso(mensaje, 'err');
-      if (/token|permiso/i.test(mensaje)) $('cfg').open = true;
+      if (!TOKEN_FIJO && /token|permiso/i.test(mensaje)) $('cfg').open = true;
     }finally{
       btn.disabled = false; btn.textContent = txt0;
     }
@@ -461,7 +465,14 @@
   // ---------- Inicio ----------
   $('cBase').textContent = AT.base; $('cTabla').textContent = AT.table; $('cVista').textContent = AT.view;
   $('lnkAirtable').href = AT.shared;
-  try{ $('chkAuto').checked = localStorage.getItem('bonoextra_auto') === '1'; }catch(err){}
+  var prefAuto = null;
+  try{ prefAuto = localStorage.getItem('bonoextra_auto'); }catch(err){}
+  $('chkAuto').checked = TOKEN_FIJO ? prefAuto !== '0' : prefAuto === '1';
+  if (TOKEN_FIJO){
+    ['tokenRow','tokenHelp','cBaseRow'].forEach(function(id){ var el = $(id); if (el) el.style.display = 'none'; });
+    $('cfgTitulo').textContent = 'Opciones de actualización';
+    $('empty').innerHTML = '<strong>Cargando datos de Airtable…</strong>';
+  }
   if (getToken()){ cargarAirtable(false); programarAuto(); }
   else { $('cfg').open = true; }
 })();
