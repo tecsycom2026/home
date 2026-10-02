@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Reporte por Cuadrilla · Peru Fibra</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{--bg:#f4f6fb;--card:#fff;--tx:#1b2333;--mut:#6b7488;--bd:#e3e7f0;--pri:#2563eb;--alta:#2563eb;--mant:#f59e0b;--ok:#16a34a;--bad:#dc2626;--hd:#f0f3fa;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1420;--card:#171e2e;--tx:#e8ecf5;--mut:#93a0ba;--bd:#27314a;--hd:#1d2638}}
+:root[data-theme="dark"]{--bg:#0f1420;--card:#171e2e;--tx:#e8ecf5;--mut:#93a0ba;--bd:#27314a;--hd:#1d2638}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:1280px;margin:0 auto;padding:20px 16px 48px}
+h1{font-size:22px;margin:0}.sub{color:var(--mut);margin:2px 0 18px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:16px}
+.grid{display:grid;gap:14px}.g2{grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+.up{border:2px dashed var(--bd);border-radius:10px;padding:16px;text-align:center;cursor:pointer;transition:.15s}
+.up:hover,.up.drag{border-color:var(--pri);background:var(--hd)}
+.up b{display:block;font-size:15px}.up small{color:var(--mut)}
+.up.ok{border-style:solid;border-color:var(--ok)}.up.err{border-color:var(--bad)}
+.msg{margin-top:6px;font-size:12px}.ok-t{color:var(--ok)}.bad-t{color:var(--bad)}
+.bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:14px 0}
+input,select,button{font:inherit;color:var(--tx);background:var(--card);border:1px solid var(--bd);border-radius:8px;padding:7px 10px}
+button{cursor:pointer}button.p{background:var(--pri);color:#fff;border-color:var(--pri)}
+.kpis{grid-template-columns:repeat(auto-fit,minmax(170px,1fr));margin-bottom:14px}
+.kpi .l{color:var(--mut);font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+.kpi .v{font-size:28px;font-weight:700;margin-top:2px}.kpi .s{color:var(--mut);font-size:12px}
+.cv{position:relative;height:300px}
+h2{font-size:15px;margin:0 0 10px}
+.tw{overflow-x:auto;border:1px solid var(--bd);border-radius:10px}
+table{border-collapse:collapse;width:100%;font-size:12px}
+th,td{padding:5px 6px;border-bottom:1px solid var(--bd);text-align:right}
+th[colspan]{text-align:center;cursor:default;letter-spacing:.06em}tr.grp th{position:static}
+th{background:var(--hd);position:sticky;top:0;cursor:pointer;user-select:none;font-size:12px}
+th:first-child,td:first-child{text-align:left;max-width:230px}
+th.ga{border-bottom:3px solid var(--alta)}th.gm{border-bottom:3px solid var(--mant)}
+tr.tot td{font-weight:700;background:var(--hd)}
+.pill{display:inline-block;padding:1px 6px;border-radius:99px;font-weight:600;font-size:12px;text-align:center}
+.pa{background:rgba(37,99,235,.15);color:var(--alta)}.pm{background:rgba(245,158,11,.18);color:#b45309}
+.pr{height:4px;border-radius:3px;background:var(--mant);overflow:hidden;margin-top:3px}.pr i{display:block;height:100%;background:var(--alta)}
+.dot{display:inline-block;width:11px;height:11px;border-radius:50%;margin-right:5px;vertical-align:-1px}
+.lg{display:inline-flex;gap:12px;margin-left:8px}
+.hide{display:none}.note{color:var(--mut);font-size:12px;margin-top:8px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Reporte por Cuadrilla · Altas Nuevas y Mantenimiento</h1>
+  <p class="sub">Sube los exportes de AppSheet (CSV) y obtén el detalle por cuadrilla.</p>
+
+  <div class="grid g2">
+    <div class="card"><div class="up" id="upA"><b>📥 Altas Nuevas</b><small>Arrastra o haz clic · CSV con columna Cuadrilla / Estado</small><div class="msg" id="mA"></div></div><input type="file" id="fA" accept=".csv,.txt" class="hide"></div>
+    <div class="card"><div class="up" id="upM"><b>🔧 Mantenimiento (Averías)</b><small>Arrastra o haz clic · CSV con columna TicketS / TipoCaso</small><div class="msg" id="mM"></div></div><input type="file" id="fM" accept=".csv,.txt" class="hide"></div>
+  </div>
+
+  <div class="bar" id="filters">
+    <label>Desde <input type="date" id="d1"></label>
+    <label>Hasta <input type="date" id="d2"></label>
+    <input type="search" id="q" placeholder="Buscar cuadrilla…">
+    <label>% Garantía sobre <select id="gb"><option value="altf">Altas finalizadas (Altas Q)</option><option value="alt">Altas (todas)</option><option value="mant">Mantenimientos</option><option value="tot">Total (altas + mant.)</option></select></label>
+    <label><input type="checkbox" id="uniq"> Tickets únicos (TicketS)</label>
+    <button id="clr">Limpiar filtros</button>
+    <button id="prt" class="p">Imprimir / PDF</button>
+  </div>
+
+  <div id="empty" class="card" style="text-align:center;color:var(--mut)">Carga al menos un archivo para ver el reporte.</div>
+
+  <div id="rep" class="hide">
+    <div class="grid kpis" id="kpis"></div>
+    <div class="grid g2" style="margin-bottom:14px">
+      <div class="card" style="grid-column:1/-1"><h2>Altas vs. Mantenimiento por cuadrilla</h2><div class="cv"><canvas id="c1"></canvas></div></div>
+      <div class="card"><h2>Altas Nuevas por estado</h2><div class="cv"><canvas id="c2"></canvas></div></div>
+      <div class="card"><h2>Mantenimiento por tipo de caso</h2><div class="cv"><canvas id="c3"></canvas></div></div>
+    </div>
+    <div class="card">
+      <h2>Detalle por cuadrilla</h2>
+      <div class="tw"><table id="tb"></table></div>
+      <div class="note">% Altas = Altas ÷ (Altas + Mantenimiento) · % Mant. = Mantenimiento ÷ (Altas + Mantenimiento). Garantías (solo estado FINALIZADO): <span class="dot" style="background:#dc2626"></span>3 o más = crítico · <span class="dot" style="background:#f59e0b"></span>2 = alerta · <span class="dot" style="background:#16a34a"></span>1 = bajo; % Gar. según la base elegida arriba. TipoCaso REGULAR se reporta como AVERÍA; GARANTÍA y REITERATIVO se mantienen. Clic en un encabezado para ordenar.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const S={A:null,M:null,sort:{k:'ng',d:-1},charts:{}};
+const COL={'FINALIZADO':'#16a34a','REPROGRAMA':'#f59e0b','CANCELADO':'#dc2626','RESCATE':'#8b5cf6','AUSENTE':'#64748b','SIN FACILIDADES TÉCNICAS':'#0891b2','OTROS':'#64748b'};
+const PAL=['#2563eb','#16a34a','#f59e0b','#dc2626','#8b5cf6','#0891b2','#ec4899','#64748b','#84cc16'];
+const col=(n,i)=>COL[n]||PAL[i%PAL.length];
+const norm=s=>(s||'').toString().trim().toUpperCase();
+const ORD=['FINALIZADO','REPROGRAMA','CANCELADO','RESCATE','OTROS'];
+function grp(x){const e=norm(x);if(e.startsWith('SIN FACILIDADES'))return 'CANCELADO';return ORD.includes(e)&&e!=='OTROS'?e:'OTROS'}
+
+function pdate(s){const m=/^(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(s||'');return m?new Date(+m[3],+m[2]-1,+m[1]):null}
+
+function load(file,slot){
+  const msgEl=$('m'+slot),box=$('up'+slot);
+  Papa.parse(file,{header:true,delimiter:';',skipEmptyLines:true,encoding:'UTF-8',transformHeader:h=>h.replace(/^\uFEFF/,'').trim(),
+  complete:r=>{
+    const f=r.meta.fields||[];
+    const isM=f.includes('TicketS'), isA=f.includes('Cuadrilla')&&f.includes('Estado')&&!isM;
+    if(slot==='A'&&!isA||slot==='M'&&!isM){
+      box.className='up err';msgEl.className='msg bad-t';
+      msgEl.textContent=slot==='A'?'Este archivo parece de Mantenimiento (tiene TicketS) o no tiene Cuadrilla/Estado.':'Este archivo no tiene la columna TicketS: no es de Mantenimiento.';
+      return;}
+    let rows;
+    if(slot==='A') rows=r.data.map(x=>({c:norm(x.Cuadrilla)||'SIN CUADRILLA',e:grp(x.Estado),d:pdate(x.Fecha_Gestion)}));
+    else rows=r.data.map(x=>({c:norm(x.Cuadrilla_v)||norm(x.Cuadrilla)||'SIN CUADRILLA',e:grp(x.Estado),t:norm(x.TipoCaso)==='REGULAR'?'AVERÍA':(norm(x.TipoCaso)||'SIN TIPO'),k:norm(x.TicketS),d:pdate(x.Fecha_Gestion_v)}));
+    S[slot]=rows;box.className='up ok';msgEl.className='msg ok-t';
+    msgEl.textContent='✔ '+file.name+' · '+rows.length+' registros';
+    render();
+  }});
+}
+[['A','fA'],['M','fM']].forEach(([s,id])=>{
+  const z=$('up'+s),i=$(id);
+  z.onclick=()=>i.click();
+  i.onchange=()=>i.files[0]&&load(i.files[0],s);
+  z.ondragover=e=>{e.preventDefault();z.classList.add('drag')};
+  z.ondragleave=()=>z.classList.remove('drag');
+  z.ondrop=e=>{e.preventDefault();z.classList.remove('drag');e.dataTransfer.files[0]&&load(e.dataTransfer.files[0],s)};
+});
+['d1','d2','q','uniq','gb'].forEach(id=>$(id).addEventListener('input',render));
+$('clr').onclick=()=>{$('d1').value=$('d2').value=$('q').value='';$('uniq').checked=false;render()};
+$('prt').onclick=()=>window.print();
+
+function filt(rows,uniq){
+  if(!rows)return[];
+  const a=$('d1').value?new Date($('d1').value+'T00:00:00'):null,b=$('d2').value?new Date($('d2').value+'T00:00:00'):null;
+  let out=rows.filter(r=>(!a||(r.d&&r.d>=a))&&(!b||(r.d&&r.d<=b)));
+  if(uniq){const seen=new Set();out=out.filter(r=>{if(!r.k)return true;if(seen.has(r.k))return false;seen.add(r.k);return true})}
+  return out;
+}
+const dot=(n,t)=>n>=3?'<span class="dot" style="background:#dc2626" title="Crítico · '+t+' garantías en total"></span>':n===2?'<span class="dot" style="background:#f59e0b" title="Alerta · '+t+' garantías en total"></span>':n===1?'<span class="dot" style="background:#16a34a" title="Bajo · '+t+' garantías en total"></span>':'<span class="dot" style="background:transparent;border:1px solid var(--bd)"></span>';
+const pg2=(a,b)=>b?(a/b*100).toFixed(2).replace('.',',')+' %':'—';
+const pct=(a,b)=>b?(a/b*100).toFixed(1)+'%':'—';
+
+function render(){
+  if(!S.A&&!S.M)return;
+  $('empty').classList.add('hide');$('rep').classList.remove('hide');
+  const uniq=$('uniq').checked,q=norm($('q').value);
+  const A=filt(S.A,false),M=filt(S.M,uniq);
+  const eA=[...new Set(A.map(r=>r.e))],eM=[...new Set(M.map(r=>r.e))];
+  const cnt=(arr,k)=>arr.reduce((o,r)=>(o[r[k]]=(o[r[k]]||0)+1,o),{});
+  const tA=cnt(A,'e'),tM=cnt(M,'e');
+  eA.sort((x,y)=>ORD.indexOf(x)-ORD.indexOf(y));eM.sort((x,y)=>ORD.indexOf(x)-ORD.indexOf(y));
+  const tipos=[...new Set(M.map(r=>r.t))].sort();
+  const map={};
+  const get=c=>map[c]||(map[c]={c,a:{},m:{},t:{},na:0,nm:0,ng:0,gt:0});
+  A.forEach(r=>{const o=get(r.c);o.a[r.e]=(o.a[r.e]||0)+1;o.na++});
+  M.forEach(r=>{const o=get(r.c);o.m[r.e]=(o.m[r.e]||0)+1;o.t[r.t]=(o.t[r.t]||0)+1;o.nm++;if(r.t.startsWith('GARANT')){o.gt++;if(r.e==='FINALIZADO')o.ng++}});
+  let list=Object.values(map).filter(o=>!q||o.c.includes(q));
+  const gb=$('gb').value;
+  list.forEach(o=>{o.total=o.na+o.nm;const bs=gb==='altf'?(o.a['FINALIZADO']||0):gb==='alt'?o.na:gb==='mant'?o.nm:o.total;o.pg=bs?o.ng/bs:0;o.pa=o.total?o.na/o.total:0;o.pm=o.total?o.nm/o.total:0});
+  const sk=S.sort.k;
+  const val=o=>sk==='c'?o.c:sk.startsWith('a:')?(o.a[sk.slice(2)]||0):sk.startsWith('m:')?(o.m[sk.slice(2)]||0):sk.startsWith('t:')?(o.t[sk.slice(2)]||0):o[sk];
+  list.sort((x,y)=>{const a=val(x),b=val(y);return (a>b?1:a<b?-1:0)*S.sort.d||(y.ng-x.ng)||(y.pg-x.pg)||(y.total-x.total)});
+
+  const TA=list.reduce((s,o)=>s+o.na,0),TM=list.reduce((s,o)=>s+o.nm,0),T=TA+TM;
+  const TAF=list.reduce((s,o)=>s+(o.a['FINALIZADO']||0),0);
+  const TG=list.reduce((s,o)=>s+o.ng,0);
+  const fin=list.reduce((s,o)=>s+(o.a['FINALIZADO']||0),0);
+  $('kpis').innerHTML=[
+    ['Cuadrillas',list.length,'con actividad'],
+    ['Altas Nuevas',TA,pct(TA,T)+' del total'],
+    ['Mantenimientos',TM,pct(TM,T)+' del total'],
+    ['Altas finalizadas',fin,pct(fin,TA)+' de las altas'],
+    ['Garantías finalizadas',list.reduce((s,o)=>s+o.ng,0),list.filter(o=>o.ng>=3).length+' cuadrillas críticas (≥3)'],
+    ['Total gestiones',T,'altas + mantenimiento']
+  ].map(k=>`<div class="card kpi"><div class="l">${k[0]}</div><div class="v">${k[1].toLocaleString('es-PE')}</div><div class="s">${k[2]}</div></div>`).join('');
+
+  // tabla
+  const sh=e=>({FINALIZADO:'Final.',REPROGRAMA:'Reprog.',CANCELADO:'Cancel.',RESCATE:'Rescate',OTROS:'Otros'})[e]||e;
+  const th=(k,t,c)=>`<th class="${c||''}" data-k="${k}">${t}${S.sort.k===k?(S.sort.d>0?' ▲':' ▼'):''}</th>`;
+  let h='<thead><tr class="grp"><th></th><th class="ga" colspan="'+(eA.length+2)+'">ALTAS NUEVAS</th><th class="gm" colspan="'+(eM.length+4)+'">MANTENIMIENTO</th><th></th></tr><tr>'+th('c','Cuadrilla')+eA.map(e=>th('a:'+e,sh(e),'ga')).join('')+th('na','Altas','ga')+th('pa','% Altas','ga')
+    +eM.map(e=>th('m:'+e,sh(e),'gm')).join('')+th('nm','Mant.','gm')+th('pm','% Mant.','gm')+th('ng','Garant. Final.','gm')+th('pg','% Gar.','gm')+th('total','Total')+'</tr></thead><tbody>';
+  list.forEach(o=>{
+    h+=`<tr><td>${o.c}<div class="pr"><i style="width:${(o.pa*100).toFixed(0)}%"></i></div></td>`
+      +eA.map(e=>`<td>${o.a[e]||0}</td>`).join('')+`<td><b>${o.na}</b></td><td><span class="pill pa">${pct(o.na,o.total)}</span></td>`
+      +eM.map(e=>`<td>${o.m[e]||0}</td>`).join('')+`<td><b>${o.nm}</b></td><td><span class="pill pm">${pct(o.nm,o.total)}</span></td><td>${dot(o.ng,o.gt)}<b>${o.ng}</b></td><td>${(o.pg*100).toFixed(2).replace('.',',')} %</td><td><b>${o.total}</b></td></tr>`;});
+  const sum=(f)=>list.reduce((s,o)=>s+f(o),0);
+  h+=`<tr class="tot"><td>TOTAL</td>`+eA.map(e=>`<td>${sum(o=>o.a[e]||0)}</td>`).join('')+`<td>${TA}</td><td>${pct(TA,T)}</td>`
+    +eM.map(e=>`<td>${sum(o=>o.m[e]||0)}</td>`).join('')+`<td>${TM}</td><td>${pct(TM,T)}</td><td>${TG}</td><td>${pg2(TG,gb==='altf'?TAF:gb==='alt'?TA:gb==='mant'?TM:T)}</td><td>${T}</td></tr></tbody>`;
+  $('tb').innerHTML=h;
+  $('tb').querySelectorAll('th').forEach(el=>el.onclick=()=>{const k=el.dataset.k;S.sort=S.sort.k===k?{k,d:-S.sort.d}:{k,d:k==='c'?1:-1};render()});
+
+  // gráficos
+  const mk=(id,cfg)=>{if(S.charts[id])S.charts[id].destroy();S.charts[id]=new Chart($(id),cfg)};
+  const tc=getComputedStyle(document.body).color;Chart.defaults.color=tc;Chart.defaults.borderColor='rgba(128,128,128,.2)';
+  const short=c=>c.length>22?c.slice(0,21)+'…':c;
+  $('c1').parentElement.style.height=Math.max(220,list.length*38+80)+'px';
+  mk('c1',{type:'bar',data:{labels:list.map(o=>o.c),datasets:[
+    {label:'Altas Nuevas',data:list.map(o=>o.na),backgroundColor:'#2563eb'},
+    {label:'Mantenimiento',data:list.map(o=>o.nm),backgroundColor:'#f59e0b'}]},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,scales:{x:{stacked:true,beginAtZero:true},y:{stacked:true}},
+    plugins:{tooltip:{callbacks:{footer:i=>{const o=list[i[0].dataIndex];return '% Altas: '+pct(o.na,o.total)+' · % Mant.: '+pct(o.nm,o.total)}}}}}});
+  mk('c2',{type:'doughnut',data:{labels:eA,datasets:[{data:eA.map(e=>tA[e]),backgroundColor:eA.map(col)}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right'}}}});
+  const tt=cnt(M,'t'),tk=Object.keys(tt);
+  mk('c3',{type:'doughnut',data:{labels:tk,datasets:[{data:tk.map(k=>tt[k]),backgroundColor:tk.map((k,i)=>PAL[i])}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right'}}}});
+}
+</script>
+</body>
+</html>
